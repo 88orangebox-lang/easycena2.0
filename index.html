@@ -172,6 +172,86 @@
         .settings-save-status.saved { color: var(--success-btn-bg-color); display: inline; }
         #tab-nastavenia.active { padding-bottom: 90px; }
 
+        /* ============== PROGRESS BAR TABU PONUKA ============== */
+        .ponuka-progress {
+            position: sticky;
+            top: 0;
+            z-index: 900;
+            background: var(--bg-color);
+            border-bottom: 1px solid var(--border-color);
+            margin: 0 -15px 15px;
+            padding: 6px 10px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            height: 46px;
+            box-sizing: border-box;
+        }
+        .pp-step {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 6px;
+            flex-shrink: 0;
+            transition: color 0.2s, background-color 0.2s;
+            color: var(--text-muted-color);
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        .pp-step:hover { background: color-mix(in srgb, var(--accent-color) 10%, transparent); }
+        .pp-num {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--input-bg-color);
+            border: 1px solid var(--input-border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            flex-shrink: 0;
+            transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+        }
+        .pp-label {
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+            text-transform: uppercase;
+        }
+        .pp-step.active { color: var(--accent-color); }
+        .pp-step.active .pp-num {
+            background: var(--accent-color);
+            color: var(--primary-btn-text-color);
+            border-color: var(--accent-color);
+        }
+        .pp-step.done { color: var(--text-color); }
+        .pp-step.done .pp-num {
+            background: color-mix(in srgb, var(--accent-color) 30%, transparent);
+            border-color: var(--accent-color);
+            color: var(--text-color);
+        }
+        .pp-line {
+            flex: 1;
+            height: 2px;
+            background: var(--border-color);
+            min-width: 6px;
+            border-radius: 2px;
+            transition: background-color 0.2s;
+        }
+        .pp-line.done { background: color-mix(in srgb, var(--accent-color) 60%, transparent); }
+
+        /* Menšie zobrazenie pre úzke telefóny */
+        @media (max-width: 380px) {
+            .ponuka-progress { gap: 2px; padding: 6px 6px; height: 44px; }
+            .pp-step { padding: 3px 4px; gap: 4px; }
+            .pp-num { width: 20px; height: 20px; font-size: 11px; }
+            .pp-label { font-size: 10px; letter-spacing: 0.2px; }
+        }
+
         @media (min-width: 768px) {
             .settings-accordion { max-width: 720px; margin-left: auto; margin-right: auto; }
             .acc-body .flex-row { gap: 12px; }
@@ -181,12 +261,34 @@
 <body>
 
     <div id="tab-ponuka" class="tab-content active">
+        <div id="ponuka-progress" class="ponuka-progress" role="navigation" aria-label="Kroky ponuky">
+            <div class="pp-step active" data-step="klient" role="button" tabindex="0">
+                <span class="pp-num">1</span>
+                <span class="pp-label">Klient</span>
+            </div>
+            <div class="pp-line"></div>
+            <div class="pp-step" data-step="polozky" role="button" tabindex="0">
+                <span class="pp-num">2</span>
+                <span class="pp-label">Položky</span>
+            </div>
+            <div class="pp-line"></div>
+            <div class="pp-step" data-step="podmienky" role="button" tabindex="0">
+                <span class="pp-num">3</span>
+                <span class="pp-label">Podmienky</span>
+            </div>
+            <div class="pp-line"></div>
+            <div class="pp-step" data-step="suhrn" role="button" tabindex="0">
+                <span class="pp-num">4</span>
+                <span class="pp-label">Súhrn</span>
+            </div>
+        </div>
+
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h2 style="margin: 0;">📝 Úprava ponuky</h2>
             <button id="nova-ponuka-btn" class="btn-danger btn-small">Nová cenová ponuka</button>
         </div>
 
-        <div class="card">
+        <div class="card" data-section="klient">
             <input type="text" id="cislo-ponuky" placeholder="Číslo ponuky (napr. CP-2026-001)">
             <input type="text" id="meno-zakaznika" placeholder="Meno / Názov firmy">
             <input type="text" id="ulica-zakaznika" placeholder="Ulica a číslo">
@@ -202,14 +304,14 @@
             </div>
         </div>
 
-        <div id="obal-logo-znacky" style="margin-bottom: 15px;">
+        <div id="obal-logo-znacky" data-section="klient" style="margin-bottom: 15px;">
             <label for="ponuka-znacka" style="font-size: 14px; color: var(--text-muted-color); display: block; margin-bottom: 5px;">Logo značky na PDF (voliteľné):</label>
             <select id="ponuka-znacka" style="width: 100%; padding: 8px; font-size: 14px; background-color: var(--input-bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px;">
                 <option value="">-- Bez loga značky --</option>
             </select>
         </div>
 
-        <div class="card" style="margin-bottom: 25px;">
+        <div class="card" data-section="klient" style="margin-bottom: 25px;">
             <h3 style="margin: 0 0 10px 0; font-size: 16px; text-transform: uppercase; border-left-style: solid; border-left-width: 4px; padding-left: 8px; letter-spacing: 0.5px;">
                 Dátumy a Miesto vystavenia
             </h3>
@@ -229,19 +331,19 @@
             </div>
         </div>
 
-        <div class="card">
+        <div class="card" data-section="polozky">
             <h3 style="margin-top: 0; margin-bottom: 10px;">Položky ponuky</h3>
             <div id="zoznam-poloziek"></div>
             <button type="button" class="btn-primary" id="pridat-polozku-btn" style="margin-top: 10px;">+ Pridať položku</button>
         </div>
         
-        <div class="card discount-card">
+        <div class="card discount-card" data-section="polozky">
             <h3 style="margin-top: 0; margin-bottom: 10px;">Zľavy</h3>
             <div id="zoznam-zliav"></div>
             <button type="button" class="btn-danger" id="pridat-zlavu-btn" style="margin-top: 10px;">+ Pridať zľavu</button>
         </div>
 
-        <div class="card" style="background-color: var(--recap-bg-color); border: 2px solid var(--recap-border-color);">
+        <div class="card" data-section="polozky" style="background-color: var(--recap-bg-color); border: 2px solid var(--recap-border-color);">
             <h3 style="margin-top: 0; text-align: center;">Rekapitulácia kategórií</h3>
             <div id="rekapitulacia-kategorie" style="margin-bottom: 15px;">
                 </div>
@@ -262,7 +364,7 @@
             </div>
         </div>
 
-        <div id="obal-podmienky" class="card" style="margin-bottom: 25px;">
+        <div id="obal-podmienky" class="card" data-section="podmienky" style="margin-bottom: 25px;">
             <h3 style="margin: 0 0 15px 0; font-size: 16px; color: var(--accent-color); text-transform: uppercase; border-left-style: solid; border-left-width: 4px; padding-left: 8px; letter-spacing: 0.5px;">
                 Podmienky ponuky
             </h3>
@@ -298,7 +400,7 @@
             </div>
         </div>
 
-        <div class="card" style="margin-bottom: 25px;">
+        <div class="card" data-section="podmienky" style="margin-bottom: 25px;">
             <h3 style="margin: 0 0 10px 0; font-size: 16px; color: var(--accent-color); text-transform: uppercase; border-left-style: solid; border-left-width: 4px; padding-left: 8px; letter-spacing: 0.5px;">
                 Doplňujúce texty <span style="font-size: 13px; color: var(--text-muted-color); text-transform: none; font-weight: normal;">(v PDF sa zobrazia na konci dokumentu)</span>
             </h3>
@@ -312,7 +414,7 @@
             </div>
         </div>
 
-        <div style="display: flex; gap: 10px; flex-direction: column;">
+        <div data-section="suhrn" style="display: flex; gap: 10px; flex-direction: column;">
             <button id="ulozit-archiv-btn" class="btn-success">💾 Uložiť do Archívu</button>
             <div style="display: flex; gap: 10px;">
                 <button id="btn-stiahnut-pdf" class="btn-secondary" style="flex: 1;">📄 Stiahnuť PDF</button>
@@ -682,6 +784,59 @@
                     setTimeout(markSaved, 100);
                 });
             }
+
+            // ========== PROGRESS BAR TABU PONUKA ==========
+            (function () {
+                const progressBar = document.getElementById('ponuka-progress');
+                if (!progressBar) return;
+                const kroky = Array.from(progressBar.querySelectorAll('.pp-step'));
+                const linie = Array.from(progressBar.querySelectorAll('.pp-line'));
+                const sekcie = document.querySelectorAll('#tab-ponuka [data-section]');
+                const poradie = ['klient', 'polozky', 'podmienky', 'suhrn'];
+
+                function oznacAktivny(sekcia) {
+                    const idx = poradie.indexOf(sekcia);
+                    if (idx < 0) return;
+                    kroky.forEach((k, i) => {
+                        k.classList.toggle('active', i === idx);
+                        k.classList.toggle('done', i < idx);
+                    });
+                    linie.forEach((l, i) => {
+                        l.classList.toggle('done', i < idx);
+                    });
+                }
+
+                function scrollujNaSekciu(cielSekcia) {
+                    const prvaSekcia = document.querySelector(`#tab-ponuka [data-section="${cielSekcia}"]`);
+                    if (!prvaSekcia) return;
+                    const offset = prvaSekcia.getBoundingClientRect().top + window.scrollY - (progressBar.offsetHeight + 8);
+                    window.scrollTo({ top: Math.max(0, offset), behavior: 'smooth' });
+                }
+
+                // Klik + klávesnica (Enter / Space) na kroky
+                kroky.forEach(krok => {
+                    krok.addEventListener('click', () => scrollujNaSekciu(krok.dataset.step));
+                    krok.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            scrollujNaSekciu(krok.dataset.step);
+                        }
+                    });
+                });
+
+                // IntersectionObserver: sekcia v strede viewportu = aktívny krok
+                const observer = new IntersectionObserver((entries) => {
+                    // Ak je tab-ponuka neaktívny, ignoruj (IO stále môže reportovať staré stavy)
+                    if (!document.getElementById('tab-ponuka').classList.contains('active')) return;
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            oznacAktivny(entry.target.dataset.section);
+                        }
+                    });
+                }, { rootMargin: '-45% 0px -50% 0px', threshold: 0 });
+
+                sekcie.forEach(s => observer.observe(s));
+            })();
         });
     </script>
 </body>
