@@ -828,6 +828,8 @@
                 const observer = new IntersectionObserver((entries) => {
                     // Ak je tab-ponuka neaktívny, ignoruj (IO stále môže reportovať staré stavy)
                     if (!document.getElementById('tab-ponuka').classList.contains('active')) return;
+                    // Keď sme na spodku stránky, fallback nižšie si vynúti "suhrn" — preskoč IO
+                    if (jeBlizkoSpodku()) return;
                     entries.forEach(entry => {
                         if (entry.isIntersecting) {
                             oznacAktivny(entry.target.dataset.section);
@@ -836,6 +838,18 @@
                 }, { rootMargin: '-45% 0px -50% 0px', threshold: 0 });
 
                 sekcie.forEach(s => observer.observe(s));
+
+                // Fallback: keď je scroll blízko spodku stránky, posledný krok "suhrn"
+                // je príliš krátky na to, aby sa dostal do stredného pásma IO.
+                function jeBlizkoSpodku() {
+                    const scrollBottom = window.scrollY + window.innerHeight;
+                    const docHeight = document.documentElement.scrollHeight;
+                    return scrollBottom >= docHeight - 80;
+                }
+                window.addEventListener('scroll', () => {
+                    if (!document.getElementById('tab-ponuka').classList.contains('active')) return;
+                    if (jeBlizkoSpodku()) oznacAktivny('suhrn');
+                }, { passive: true });
             })();
         });
     </script>
