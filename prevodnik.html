@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <title>Generátor fontov</title>
+</head>
+<body style="font-family: sans-serif; padding: 20px;">
+    <h2>1. Vyber .ttf súbor (napr. Roboto-Bold.ttf)</h2>
+    <input type="file" id="fontInput" accept=".ttf" style="margin-bottom: 20px;">
+    <h2>2. Skopíruj vygenerovaný kód:</h2>
+    <textarea id="vysledok" rows="15" style="width: 100%;"></textarea>
+
+    <script>
+        document.getElementById('fontInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const base64 = event.target.result.split(',')[1];
+                document.getElementById('vysledok').value = base64;
+            };
+            reader.readAsDataURL(file);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EasyCena</title>
+    <link rel="icon" type="image/png" href="favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="shortcut icon" href="favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+    <link rel="manifest" href="site.webmanifest" />
+    <meta name="theme-color" content="#0056b3">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="Roboto-Regular-normal.js"></script>
+    <script src="Roboto-Bold-bold.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg-color: #1e1e1e;
+            --text-color: #ffffff;
+            --text-muted-color: #9ca3af;
+            --accent-color: #facc15;
+            --border-color: #333333;
+            --input-bg-color: #2d2d2d;
+            --input-border-color: #4b5563;
+            --primary-btn-bg-color: #facc15;
+            --primary-btn-text-color: #111827;
+            --secondary-btn-bg-color: #374151;
+            --danger-btn-bg-color: #ef4444;
+            --success-btn-bg-color: #22c55e;
+            --link-color: #facc15;
+            --recap-bg-color: #f8fafc;
+            --recap-border-color: #1e293b;
+            --recap-header-color: #0056b3;
+            --recap-total-color: #dc2626;
+            --discount-card-bg-color: #fef2f2;
+            --discount-header-color: #dc2626;
+        }
+
+        body[data-theme="light"] {
+            --bg-color: #f3f4f6;
+            --card-bg-color: #ffffff;
+            --text-color: #111827;
+            --text-muted-color: #4b5563;
+            --accent-color: #0056b3;
+            --border-color: #e5e7eb;
+            --input-bg-color: #f9fafb;
+            --input-border-color: #d1d5db;
+            --primary-btn-bg-color: #0056b3;
+            --primary-btn-text-color: #ffffff;
+            --secondary-btn-bg-color: #e5e7eb;
+            --danger-btn-bg-color: #ef4444;
+            --success-btn-bg-color: #22c55e;
+            --link-color: #0056b3;
+            --recap-bg-color: #ffffff;
+            --recap-border-color: #e5e7eb;
+            --recap-header-color: #0056b3;
+            --recap-total-color: #dc2626;
+            --discount-card-bg-color: #fef2f2;
+            --discount-header-color: #dc2626;
+        }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 0; padding-bottom: 80px; }
+        h1, h2, h3, h4 { margin-top: 0; color: var(--text-color); }
+        .tab-content { display: none; padding: 15px; max-width: 600px; margin: 0 auto; }
+        .tab-content.active { display: block; }
+        
+        .card { background: var(--card-bg-color) !important; border: 1px solid var(--border-color) !important; border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: var(--text-color) !important; }
+        
+        .card h3 { color: var(--text-color) !important; border-left: 4px solid var(--accent-color); padding-left: 10px; text-transform: uppercase; font-size: 15px; letter-spacing: 1px; margin-bottom: 15px; }
+
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; margin: 0; }
+        input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+
+        input[type="text"], input[type="number"], input[type="email"], select, textarea { width: 100%; padding: 12px; margin-bottom: 12px; background-color: var(--input-bg-color) !important; border: 1px solid var(--input-border-color) !important; border-radius: 6px; font-size: 16px; color: var(--text-color) !important; box-sizing: border-box; transition: all 0.2s; }
+        input:focus, select:focus, textarea:focus { border-color: var(--accent-color) !important; outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-color) 20%, transparent) !important; }
+        input::placeholder, textarea::placeholder { color: var(--text-muted-color) !important; }
+        
+        input:-webkit-autofill { -webkit-box-shadow: 0 0 0 30px var(--input-bg-color) inset !important; -webkit-text-fill-color: var(--text-color) !important; }
+        
+        label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 12px; color: var(--text-muted-color); text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        button { padding: 14px 15px; font-size: 16px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; width: 100%; box-sizing: border-box; transition: background-color 0.2s; text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn-primary { background-color: var(--primary-btn-bg-color) !important; color: var(--primary-btn-text-color) !important; }
+        .btn-primary:active { background-color: color-mix(in srgb, var(--primary-btn-bg-color) 90%, black) !important; }
+        .btn-danger { background-color: var(--danger-btn-bg-color) !important; color: #ffffff !important; }
+        .btn-success { background-color: var(--success-btn-bg-color) !important; color: #ffffff !important; }
+        .btn-secondary { background-color: var(--secondary-btn-bg-color) !important; color: var(--text-color) !important; border: 1px solid var(--input-border-color) !important; }
+        .btn-small { width: auto; padding: 8px 12px; font-size: 13px; }
+        
+        .flex-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+        .flex-row input, .flex-row select { margin-bottom: 0; padding: 10px; }
+        
+        .polozka-riadok { border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 15px; }
+        .polozka-riadok:last-child { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
+        
+        .mnoz-minus, .mnoz-plus { background-color: var(--secondary-btn-bg-color) !important; color: var(--accent-color) !important; border-color: var(--input-border-color) !important; }
+        
+        /* Balík štýly */
+        .balik-kontajner { border: 1px solid var(--input-border-color); border-radius: 8px; padding: 12px; margin-bottom: 15px; background: var(--card-bg-color); position: relative; }
+        .balik-kontajner strong { color: var(--accent-color) !important; }
+        .balik-kontajner-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+        .balik-label-text { color: var(--text-muted-color); font-size: 13px; }
+        .balik-nasobic { text-align: center; font-weight: bold; border: none; background: var(--input-bg-color); color: var(--accent-color); font-size: 15px; width: 40px; }
+        .balik-btn { padding: 6px; border-radius: 0; border: none; font-weight: bold; font-size: 16px; background: var(--secondary-btn-bg-color); color: var(--text-color); cursor: pointer; }
+        .balik-minus { border-radius: 6px 0 0 6px; }
+        .balik-plus { border-radius: 0 6px 6px 0; }
+        .balik-polozky-obal { padding-left: 10px; border-left: 2px solid var(--border-color); }
+        .v-baliku .polozka-nazov { background-color: transparent; border: 1px solid var(--border-color) !important; }
+        .v-baliku .polozka-cena { background-color: var(--card-bg-color) !important; color: var(--text-muted-color) !important; border: 1px solid var(--input-border-color) !important; }
+        
+        /* Cena input - editable state */
+        .polozka-cena-editable { background-color: var(--input-bg-color) !important; color: var(--text-color) !important; border-color: var(--accent-color) !important; }
+        .polozka-cena-readonly { background-color: var(--card-bg-color) !important; color: var(--text-muted-color) !important; border-color: var(--input-border-color) !important; }
+        
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background-color: var(--card-bg-color); border-top: 1px solid var(--border-color); display: flex; justify-content: space-around; z-index: 1000; padding-bottom: env(safe-area-inset-bottom); }
+        .nav-item { flex: 1; text-align: center; padding: 12px 0; color: var(--text-muted-color); font-weight: bold; font-size: 12px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: color 0.2s; text-transform: uppercase; }
+        .nav-item.active { color: var(--link-color); border-top: 3px solid var(--link-color); margin-top: -2px; }
+        .nav-icon { font-size: 20px; }
+        
+        #vlastny-nasepkavac { position: absolute; display: none; background: var(--input-bg-color); border: 2px solid var(--accent-color); border-radius: 0 0 6px 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.5); z-index: 1001; max-height: 250px; overflow-y: auto; color: var(--text-color); }
+        .nasepkavac-polozka { padding: 12px; border-bottom: 1px solid var(--input-border-color); cursor: pointer; }
+        .nasepkavac-polozka:hover { background-color: var(--secondary-btn-bg-color); }
+        
+        p, small { color: var(--text-muted-color) !important; }
+        .zlavovy-riadok { display: flex; justify-content: space-between; color: var(--danger-btn-bg-color); font-size: 14px; margin-bottom: 5px; }
+        strong { color: var(--accent-color) !important; }
+        
+        /* Specific overrides for certain cards */
+        .discount-card { border-left: 4px solid var(--danger-btn-bg-color); background-color: var(--card-bg-color); }
+        .discount-card h3 { color: var(--text-color) !important; }
+        body[data-theme="light"] .discount-card { background-color: var(--discount-card-bg-color) !important; }
+        body[data-theme="light"] .discount-card h3 { color: var(--discount-header-color) !important; }
+
+        [style*="background-color: #f8fafc"] { background-color: var(--recap-bg-color) !important; border-color: var(--recap-border-color) !important; }
+        [style*="background-color: #f8fafc"] h3 { color: var(--recap-header-color) !important; }
+        [style*="background-color: #f8fafc"] h2 { color: var(--recap-total-color) !important; }
+        #cislo-ponuky { font-weight: bold; color: var(--accent-color) !important; }
+        [style*="border-left: 4px solid #0056b3"] { border-left-color: var(--accent-color) !important; }
+
+        /* ============== ACCORDION NASTAVENIA ============== */
+        .settings-accordion { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+        .acc-item { background: var(--card-bg-color); border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden; transition: border-color 0.2s; }
+        .acc-item.open { border-color: var(--accent-color); }
+        .acc-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
+        .acc-head:hover { background: color-mix(in srgb, var(--accent-color) 6%, transparent); }
+        .acc-icon { width: 36px; height: 36px; border-radius: 8px; background: var(--input-bg-color); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+        .acc-label { flex: 1; min-width: 0; }
+        .acc-name { color: var(--text-color); font-size: 15px; font-weight: 600; margin: 0; }
+        .acc-sub { color: var(--text-muted-color); font-size: 12px; margin: 2px 0 0; }
+        .acc-arrow { color: var(--text-muted-color); font-size: 20px; transition: transform 0.2s; flex-shrink: 0; line-height: 1; }
+        .acc-item.open .acc-arrow { transform: rotate(90deg); color: var(--accent-color); }
+        .acc-body { display: none; padding: 0 16px 16px; border-top: 1px solid var(--border-color); }
+        .acc-item.open .acc-body { display: block; padding-top: 16px; }
+        .acc-body > :first-child { margin-top: 0; }
+        .acc-body label { margin-top: 12px; }
+        .acc-body label:first-child { margin-top: 0; }
+
+        .settings-section-hint { font-size: 12px; color: var(--text-muted-color); margin: 0 0 10px; line-height: 1.4; }
+        .brand-logo-row { display: flex; align-items: center; gap: 10px; background: var(--input-bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; }
+        .brand-logo-row img { height: 24px; max-width: 70px; object-fit: contain; background: white; border-radius: 3px; padding: 2px; }
+        .brand-logo-row .brand-name { flex: 1; color: var(--text-color); font-size: 14px; font-weight: 500; }
+
+        /* Sticky save lišta — viditeľná iba keď je tab-nastavenia aktívny (display:none rodič skryje aj fixed child) */
+        .settings-sticky-save { position: fixed; bottom: 64px; left: 0; right: 0; background: var(--card-bg-color); border-top: 1px solid var(--border-color); padding: 10px 15px calc(10px + env(safe-area-inset-bottom)); display: flex; gap: 10px; align-items: center; z-index: 999; box-shadow: 0 -4px 12px rgba(0,0,0,0.2); }
+        .settings-sticky-save button { flex: 1; margin: 0; padding: 12px; font-size: 15px; }
+        .settings-save-status { font-size: 12px; color: var(--text-muted-color); white-space: nowrap; display: none; }
+        .settings-save-status.dirty { color: var(--accent-color); display: inline; }
+        .settings-save-status.saved { color: var(--success-btn-bg-color); display: inline; }
+        #tab-nastavenia.active { padding-bottom: 90px; }
+
+        @media (min-width: 768px) {
+            .settings-accordion { max-width: 720px; margin-left: auto; margin-right: auto; }
+            .acc-body .flex-row { gap: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="tab-ponuka" class="tab-content active">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h2 style="margin: 0;">📝 Úprava ponuky</h2>
+            <button id="nova-ponuka-btn" class="btn-danger btn-small">Nová cenová ponuka</button>
+        </div>
+
+        <div class="card">
+            <input type="text" id="cislo-ponuky" placeholder="Číslo ponuky (napr. CP-2026-001)">
+            <input type="text" id="meno-zakaznika" placeholder="Meno / Názov firmy">
+            <input type="text" id="ulica-zakaznika" placeholder="Ulica a číslo">
+            <input type="text" id="mesto-zakaznika" placeholder="PSČ a Mesto">
+            <div class="flex-row">
+                <input type="text" id="ico-zakaznika" placeholder="IČO (nepovinné)" style="flex: 1;">
+                <input type="text" id="dic-zakaznika" placeholder="DIČ (nepovinné)" style="flex: 1;">
+            </div>
+            <input type="text" id="icdph-zakaznika" placeholder="IČ DPH (nepovinné)">
+            <div class="flex-row">
+                <input type="text" id="telefon-zakaznika" placeholder="Telefón">
+                <input type="email" id="email-zakaznika" placeholder="E-mail">
+            </div>
+        </div>
+
+        <div id="obal-logo-znacky" style="margin-bottom: 15px;">
+            <label for="ponuka-znacka" style="font-size: 14px; color: var(--text-muted-color); display: block; margin-bottom: 5px;">Logo značky na PDF (voliteľné):</label>
+            <select id="ponuka-znacka" style="width: 100%; padding: 8px; font-size: 14px; background-color: var(--input-bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px;">
+                <option value="">-- Bez loga značky --</option>
+            </select>
+        </div>
+
+        <div class="card" style="margin-bottom: 25px;">
+            <h3 style="margin: 0 0 10px 0; font-size: 16px; text-transform: uppercase; border-left-style: solid; border-left-width: 4px; padding-left: 8px; letter-spacing: 0.5px;">
+                Dátumy a Miesto vystavenia
+            </h3>
+            <div class="flex-row" style="margin-bottom: 10px;">
+                <div style="flex: 1;">
+                    <label for="ponuka-miesto-vystavenia">Miesto vystavenia:</label>
+                    <input type="text" id="ponuka-miesto-vystavenia" placeholder="Napr. Bratislava" style="margin-bottom: 0;">
+                </div>
+                <div style="flex: 1;">
+                    <label for="ponuka-datum-vystavenia">Dátum vystavenia:</label>
+                    <input type="date" id="ponuka-datum-vystavenia" style="margin-bottom: 0;">
+                </div>
+            </div>
+            <div id="obal-platnost">
+                <label for="platnost-do">Platnosť ponuky do (nechaj prázdne pre 30 dní):</label>
+                <input type="date" id="platnost-do">
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-top: 0; margin-bottom: 10px;">Položky ponuky</h3>
+            <div id="zoznam-poloziek"></div>
+            <button type="button" class="btn-primary" id="pridat-polozku-btn" style="margin-top: 10px;">+ Pridať položku</button>
+        </div>
+        
+        <div class="card discount-card">
+            <h3 style="margin-top: 0; margin-bottom: 10px;">Zľavy</h3>
+            <div id="zoznam-zliav"></div>
+            <button type="button" class="btn-danger" id="pridat-zlavu-btn" style="margin-top: 10px;">+ Pridať zľavu</button>
+        </div>
+
+        <div class="card" style="background-color: var(--recap-bg-color); border: 2px solid var(--recap-border-color);">
+            <h3 style="margin-top: 0; text-align: center;">Rekapitulácia kategórií</h3>
+            <div id="rekapitulacia-kategorie" style="margin-bottom: 15px;">
+                </div>
+
+            <h3 style="margin-top: 15px; padding-top: 15px; border-top: 2px solid var(--border-color); text-align: center;">Celková suma ponuky</h3>
+            <div id="zobrazenie-aplikovanych-zliav-global" style="margin-bottom: 5px;"></div>
+            
+            <div id="zobrazenie-zaklad-bez-dph" style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 16px;">
+                <span>Základ bez DPH:</span>
+                <span id="zaklad-bez-dph" style="font-weight: bold;">0.00 €</span>
+            </div>
+            <div id="zobrazenie-dph" style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 16px;">
+                <span>DPH (23%):</span>
+                <span id="hodnota-dph">0.00 €</span>
+            </div>
+            <div style="text-align: center; margin-top: 10px;">
+                <h2 style="margin: 0; font-size: 24px;">SPOLU: <span id="konecna-suma">0.00</span> €</h2>
+            </div>
+        </div>
+
+        <div id="obal-podmienky" class="card" style="margin-bottom: 25px;">
+            <h3 style="margin: 0 0 15px 0; font-size: 16px; color: var(--accent-color); text-transform: uppercase; border-left-style: solid; border-left-width: 4px; padding-left: 8px; letter-spacing: 0.5px;">
+                Podmienky ponuky
+            </h3>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div class="flex-row" style="margin-bottom: 0;">
+                    <label style="flex: 1; margin: 0; font-size: 13px;">Dodacie podmienky:</label>
+                    <input type="text" id="ponuka-dodacie" list="dodacie-zoznam" style="flex: 2; margin: 0; padding: 10px; font-size: 14px;" placeholder="Vyber alebo vpíš vlastné...">
+                    <datalist id="dodacie-zoznam">
+                        <option value="dohodou">
+                        <option value="ihneď">
+                        <option value="do 14 dní">
+                        <option value="do 30 dní">
+                    </datalist>
+                </div>
+                <div class="flex-row" style="margin-bottom: 0;">
+                    <label style="flex: 1; margin: 0; font-size: 13px;">Platobné podmienky:</label>
+                    <input type="text" id="ponuka-platobne" list="platobne-zoznam" style="flex: 2; margin: 0; padding: 10px; font-size: 14px;" placeholder="Vyber alebo vpíš vlastné...">
+                    <datalist id="platobne-zoznam">
+                        <option value="dohodou">
+                        <option value="zálohová platba 50%">
+                        <option value="hotovosť po dodaní">
+                        <option value="prevodný príkaz (14 dní)">
+                    </datalist>
+                </div>
+                <div class="flex-row" style="margin-bottom: 0;">
+                    <label style="flex: 1; margin: 0; font-size: 13px;">Záruka (Zariadenie):</label>
+                    <input type="text" id="ponuka-zaruka-zariadenie" value="36 mesiacov na dodané zariadenia" style="flex: 2; margin: 0; padding: 10px; font-size: 14px;">
+                </div>
+                <div class="flex-row" style="margin-bottom: 0;">
+                    <label style="flex: 1; margin: 0; font-size: 13px;">Záruka (Montáž):</label>
+                    <input type="text" id="ponuka-zaruka-montaz" value="36 mesiacov na montáž" style="flex: 2; margin: 0; padding: 10px; font-size: 14px;">
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 25px;">
+            <h3 style="margin: 0 0 10px 0; font-size: 16px; color: var(--accent-color); text-transform: uppercase; border-left-style: solid; border-left-width: 4px; padding-left: 8px; letter-spacing: 0.5px;">
+                Doplňujúce texty <span style="font-size: 13px; color: var(--text-muted-color); text-transform: none; font-weight: normal;">(v PDF sa zobrazia na konci dokumentu)</span>
+            </h3>
+            
+            <label for="ponuka-poznamka-1" style="font-size: 13px; color: var(--text-muted-color); display: block; margin-bottom: 5px; margin-top: 15px;">Poznámka (nad technickým popisom):</label>
+            <textarea id="ponuka-poznamka-1" rows="2" style="width: 100%; box-sizing: border-box; font-family: inherit; font-size: 15px; margin-bottom: 5px; background-color: var(--input-bg-color); border: 1px solid var(--input-border-color); color: var(--text-color); border-radius: 6px; padding: 12px;"></textarea>
+
+            <div id="obal-informacia-2">
+                <label for="ponuka-informacia-2" style="font-size: 13px; color: var(--text-muted-color); display: block; margin-bottom: 5px; margin-top: 15px;">Informácia (na konci pred podpisom):</label>
+                <textarea id="ponuka-informacia-2" rows="2" style="width: 100%; box-sizing: border-box; font-family: inherit; font-size: 15px; background-color: var(--input-bg-color); border: 1px solid var(--input-border-color); color: var(--text-color); border-radius: 6px; padding: 12px;"></textarea>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; flex-direction: column;">
+            <button id="ulozit-archiv-btn" class="btn-success">💾 Uložiť do Archívu</button>
+            <div style="display: flex; gap: 10px;">
+                <button id="btn-stiahnut-pdf" class="btn-secondary" style="flex: 1;">📄 Stiahnuť PDF</button>
+                <button id="btn-zdielat-pdf" class="btn-primary" style="flex: 1;">📤 Zdieľať PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-katalog" class="tab-content">
+        <h2>📚 Správa katalógu</h2>
+        <div class="card" id="form-katalog-polozka">
+            <h3 id="katalog-form-nadpis">Pridať do katalógu</h3>
+            
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <button id="btn-typ-polozka" class="btn-primary btn-small" style="flex: 1;">Položka</button>
+                <button id="btn-typ-balik" class="btn-secondary btn-small" style="flex: 1;">Balíček</button>
+            </div>
+            
+            <input type="hidden" id="katalog-uprava-id" value="">
+            <input type="hidden" id="katalog-typ-vstupu" value="polozka">
+            
+            <div id="katalog-sekcia-polozka">
+                <select id="katalog-kategoria">
+                    <option value="material" selected>Materiál</option>
+                    <option value="zariadenie">Zariadenie</option>
+                    <option value="praca">Práca / Služba</option>
+                </select>
+                
+                <div class="flex-row">
+                    <input type="text" id="katalog-nazov" placeholder="Názov položky" style="flex: 3;">
+                    <select id="katalog-mj" style="flex: 1;">
+                        <option value="ks">ks</option>
+                        <option value="m">m</option>
+                        <option value="m2">m²</option>
+                        <option value="m³">m³</option>
+                        <option value="kg">kg</option>
+                        <option value="km">km</option>
+                        <option value="hod">hod</option>
+                        <option value="set">set</option>
+                        <option value="bal">bal</option>
+                        <option value="kpl">kpl</option>
+                    </select>
+                </div>
+                <div class="flex-row">
+                    <input type="number" id="katalog-cena" placeholder="Cena bez DPH (€)" style="flex: 2;">
+                    <input type="number" id="katalog-dph" placeholder="DPH (%)" style="flex: 1;" min="0" max="100">
+                </div>
+
+                <button type="button" id="btn-ukaz-popis" class="btn-secondary btn-small" style="display: none; margin-top: 10px; margin-bottom: 10px;">📝 Pridať technický popis</button>
+            
+                <div id="box-technicky-popis" style="display: none; margin-top: 10px; margin-bottom: 15px; border-left: 3px solid var(--accent-color); padding-left: 10px;">
+                    <label for="katalog-popis" style="font-size: 14px; color: var(--text-muted-color); display: block; margin-bottom: 5px;">Technický popis do PDF (voliteľné):</label>
+                    <textarea id="katalog-popis" rows="4" placeholder="Napr. Klimatizovanie obývačky s kuchyňou bude zabezpečovať klimatizácia značky..." style="width: 100%; padding: 8px; font-size: 14px; background-color: var(--card-bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px; resize: vertical;"></textarea>
+                </div>
+                
+            </div>
+
+            <div id="katalog-sekcia-balik" style="display: none;">
+                <input type="text" id="balik-nazov" placeholder="Názov balíčka (napr. Klimatizácia 3.5kW)" style="font-weight: bold; border-color: var(--accent-color);">
+                <div style="background: var(--input-bg-color); padding: 10px; border: 1px dashed var(--input-border-color); border-radius: 6px; margin-bottom: 10px;">
+                    <label>Obsah balíčka (klikni do názvu pre vyhľadávanie):</label>
+                    <div id="zoznam-poloziek-balika"></div>
+                    <button type="button" id="pridat-do-balika-btn" class="btn-secondary btn-small" style="width: 100%; margin-top: 10px;">+ Pridať riadok do balíčka</button>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button id="zrusit-upravu-btn" class="btn-secondary" style="display: none; flex: 0.5;">Zrušiť</button>
+                <button id="ulozit-do-katalogu-btn" class="btn-primary" style="flex: 1;">Uložiť do katalógu</button>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 20px; border-left: 4px solid var(--success-btn-bg-color) !important;">
+            <h3 style="margin-top:0; color: var(--success-btn-bg-color) !important; border-left: none; padding-left: 0;">Importovať položky (CSV)</h3>
+            <p style="font-size: 13px; color: var(--text-muted-color); margin-bottom: 10px;">Nahrajte cenník vyexportovaný z Excelu vo formáte .csv (oddelený čiarkou alebo bodkočiarkou).</p>
+            
+            <label for="import-csv-input" class="btn-secondary" style="display: block; text-align: center; margin-bottom: 10px; cursor: pointer; padding: 12px; border-radius: 6px;">
+                Vybrať CSV súbor
+            </label>
+            <input type="file" id="import-csv-input" accept=".csv" style="display: none;">
+
+            <div id="import-mapovanie-box" style="display: none; background: var(--input-bg-color); padding: 15px; border-radius: 6px; border: 1px solid var(--input-border-color); margin-top: 15px;">
+                <h4 style="margin-top:0; margin-bottom: 10px; color: var(--accent-color);">Priraďte stĺpce z vášho súboru:</h4>
+                
+                <div class="flex-row">
+                    <label style="flex: 1;">Názov položky *:</label>
+                    <select id="map-nazov" style="flex: 2; margin-bottom: 0;"></select>
+                </div>
+                <div class="flex-row">
+                    <label style="flex: 1;">Cena bez DPH *:</label>
+                    <select id="map-cena" style="flex: 2; margin-bottom: 0;"></select>
+                </div>
+                <div class="flex-row">
+                    <label style="flex: 1;">Sadzba DPH (%):</label>
+                    <select id="map-dph" style="flex: 2; margin-bottom: 0;">
+                        <option value="">-- Použiť z profilu --</option>
+                    </select>
+                </div>
+                <div class="flex-row">
+                    <label style="flex: 1;">Kategória:</label>
+                    <select id="map-kategoria" style="flex: 2; margin-bottom: 0;">
+                        <option value="">-- Všetko zaradiť ako "Materiál" --</option>
+                    </select>
+                </div>
+                <div class="flex-row">
+                    <label style="flex: 1;">Merná jednotka:</label>
+                    <select id="map-mj" style="flex: 2; margin-bottom: 0;">
+                        <option value="">-- Všetko nastaviť na "ks" --</option>
+                    </select>
+                </div>
+                
+                <button id="spustit-import-btn" class="btn-primary" style="margin-top: 15px;">Spustiť import</button>
+            </div>
+        </div>
+        <div class="card">
+            <h3>Uložené v katalógu</h3>
+            <div id="zoznam-v-katalogu"></div>
+        </div>
+    </div>
+
+    <div id="tab-archiv" class="tab-content">
+        <h2>📁 Archív ponúk</h2>
+        <div class="card"><div id="zoznam-archivu"></div></div>
+    </div>
+
+    <div id="tab-nastavenia" class="tab-content">
+        <h2>⚙️ Nastavenia</h2>
+
+        <style>
+            #theme-toggle:checked + span { background-color: #0056b3; }
+            #theme-toggle:checked + span span { transform: translateX(20px); }
+        </style>
+
+        <div class="settings-accordion">
+
+            <!-- 1. FIRMA A KONTAKT -->
+            <div class="acc-item open" data-acc>
+                <div class="acc-head">
+                    <div class="acc-icon">🏢</div>
+                    <div class="acc-label">
+                        <div class="acc-name">Firma a kontakt</div>
+                        <div class="acc-sub">Názov, adresa, IČO/DIČ, telefón</div>
+                    </div>
+                    <div class="acc-arrow">›</div>
+                </div>
+                <div class="acc-body">
+                    <input type="text" id="moja-firma" placeholder="Názov firmy / Tvoje meno">
+                    <input type="text" id="moja-ulica" placeholder="Ulica a číslo">
+                    <input type="text" id="moje-mesto" placeholder="PSČ a Mesto">
+                    <div class="flex-row">
+                        <input type="text" id="moje-ico" placeholder="IČO" style="flex: 1;">
+                        <input type="text" id="moje-dic" placeholder="DIČ" style="flex: 1;">
+                    </div>
+
+                    <label style="display: flex; align-items: center; gap: 10px; font-weight: normal; margin: 15px 0; text-transform: none; font-size: 14px; color: var(--text-color);">
+                        <input type="checkbox" id="som-platca-dph" style="width: 20px; height: 20px;"> Som platca DPH
+                    </label>
+                    <input type="text" id="moje-ic-dph" placeholder="IČ DPH" style="display: none;">
+                    <input type="number" id="profil-sadzba-dph" placeholder="Základná sadzba DPH (napr. 23) %" style="display: none;" min="0" max="100">
+
+                    <input type="text" id="profil-kontaktna-osoba" placeholder="Kontaktná osoba (napr. Vybavuje: Ján Mrkvička)" style="margin-top: 10px;">
+                    <input type="text" id="moj-telefon" placeholder="Kontaktný telefón">
+                    <input type="email" id="moj-email" placeholder="E-mail">
+                    <input type="text" id="profil-miesto-vystavenia" placeholder="Miesto vystavenia (napr. Bratislava)" style="margin-top: 10px;">
+
+                    <textarea id="profil-zapis-register" rows="2" placeholder="Zápis v registri (napr. spoločnosť zapísaná v Obchodnom registri...)" style="margin-top: 10px; width: 100%; padding: 12px; border: 1px solid var(--input-border-color); border-radius: 6px; font-family: inherit; background: var(--input-bg-color); color: var(--text-color); box-sizing: border-box;"></textarea>
+                </div>
+            </div>
+
+            <!-- 2. LOGO A PODPIS -->
+            <div class="acc-item" data-acc>
+                <div class="acc-head">
+                    <div class="acc-icon">🖼️</div>
+                    <div class="acc-label">
+                        <div class="acc-name">Logo a podpis</div>
+                        <div class="acc-sub">Hlavička PDF · podpis na konci dokumentu</div>
+                    </div>
+                    <div class="acc-arrow">›</div>
+                </div>
+                <div class="acc-body">
+                    <label>Logo firmy (zobrazí sa v PDF):</label>
+                    <input type="file" id="nahrat-logo" accept="image/png, image/jpeg" style="margin-bottom: 10px; padding: 5px; font-size: 14px;">
+                    <div id="logo-nahlad-box" style="display: none; align-items: flex-end; gap: 10px; margin-bottom: 10px;">
+                        <img id="logo-preview" src="" style="max-height: 50px; border: 1px solid #ccc; border-radius: 4px; padding: 2px; background: white;">
+                        <button type="button" id="zmazat-logo-btn" class="btn-danger btn-small">Odstrániť logo</button>
+                    </div>
+                    <p class="settings-section-hint">Odporúčaný formát: PNG bez pozadia alebo JPG.</p>
+
+                    <hr style="border: none; border-top: 1px dashed var(--border-color); margin: 16px 0;">
+
+                    <label for="profil-text-podpisu">Text pod čiarou na podpis</label>
+                    <input type="text" id="profil-text-podpisu" placeholder="Napr. Pečiatka a podpis, alebo Meno a Priezvisko...">
+
+                    <label>Naskenovaný podpis (zobrazí sa na konci PDF):</label>
+                    <input type="file" id="nahrat-podpis" accept="image/png, image/jpeg" style="margin-bottom: 10px; padding: 5px; font-size: 14px;">
+                    <div id="podpis-nahlad-box" style="display: none; align-items: flex-end; gap: 10px; margin-bottom: 10px;">
+                        <img id="podpis-preview" src="" style="max-height: 60px; border: 1px solid #ccc; border-radius: 4px; padding: 2px; background: white;">
+                        <button type="button" id="zmazat-podpis-btn" class="btn-danger btn-small">Odstrániť podpis</button>
+                    </div>
+                    <p class="settings-section-hint">Odporúčanie: Nahrajte fotku podpisu na čistom bielom pozadí, orezanú tesne okolo textu (úzky obdĺžnik).</p>
+                </div>
+            </div>
+
+            <!-- 3. LOGÁ ZNAČIEK -->
+            <div class="acc-item" data-acc>
+                <div class="acc-head">
+                    <div class="acc-icon">🏷️</div>
+                    <div class="acc-label">
+                        <div class="acc-name">Logá značiek (Výrobcovia)</div>
+                        <div class="acc-sub">Daikin, MDV, Mitsubishi… pre hlavičku PDF</div>
+                    </div>
+                    <div class="acc-arrow">›</div>
+                </div>
+                <div class="acc-body">
+                    <p class="settings-section-hint">Pridajte si logá značiek, ktoré sa dajú vybrať pri tvorbe ponuky a zobrazia sa v hlavičke PDF.</p>
+
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: flex-start; flex-wrap: wrap;">
+                        <input type="text" id="nova-znacka-nazov" placeholder="Názov (napr. MDV)" style="flex: 1; min-width: 150px; padding: 10px; font-size: 14px; margin-bottom: 0;">
+                        <input type="file" id="nova-znacka-logo" accept="image/png, image/jpeg" style="flex: 1.5; min-width: 200px; padding: 8px; font-size: 14px;">
+                        <button type="button" id="pridat-znacku-btn" class="btn-primary btn-small" style="padding: 10px 15px;">Pridať značku</button>
+                    </div>
+
+                    <div id="zoznam-znaciek" style="display: flex; flex-direction: column; gap: 8px;"></div>
+                </div>
+            </div>
+
+            <!-- 4. ČÍSLOVANIE A PREDVOLENÉ TEXTY -->
+            <div class="acc-item" data-acc>
+                <div class="acc-head">
+                    <div class="acc-icon">📄</div>
+                    <div class="acc-label">
+                        <div class="acc-name">Číslovanie a predvolené texty</div>
+                        <div class="acc-sub">Formát čísla ponuky · poznámky do PDF</div>
+                    </div>
+                    <div class="acc-arrow">›</div>
+                </div>
+                <div class="acc-body">
+                    <div style="display: flex; gap: 10px; margin-bottom: 5px;">
+                        <div style="flex: 2;">
+                            <label for="profil-sablona-cisla">Formát číslovania:</label>
+                            <input type="text" id="profil-sablona-cisla" placeholder="Napr. CP-{ROK}-{CISLO}">
+                        </div>
+                        <div style="flex: 1;">
+                            <label for="profil-pocitadlo">Nasledujúce číslo:</label>
+                            <input type="number" id="profil-pocitadlo" min="1" placeholder="Napr. 1">
+                        </div>
+                    </div>
+                    <p class="settings-section-hint">Použi <b>{ROK}</b> pre aktuálny rok a <b>{CISLO}</b> pre poradové číslo. Ak začínaš uprostred roka, prepíš si nasledujúce číslo.</p>
+
+                    <hr style="border: none; border-top: 1px dashed var(--border-color); margin: 16px 0;">
+
+                    <label for="profil-poznamka-1">Predvolená poznámka (nad technickým popisom)</label>
+                    <textarea id="profil-poznamka-1" rows="2" placeholder="napr. Cenová ponuka bola spracovaná na základe obhliadky..." style="width: 100%; padding: 12px; border: 1px solid var(--input-border-color); border-radius: 6px; font-family: inherit; margin-bottom: 10px; background: var(--input-bg-color); color: var(--text-color); box-sizing: border-box;"></textarea>
+
+                    <label for="profil-informacia-2">Predvolená informácia (na konci pred podpisom)</label>
+                    <textarea id="profil-informacia-2" rows="2" placeholder="napr. Nepredvídané dodávky a montážne práce budú účtované..." style="width: 100%; padding: 12px; border: 1px solid var(--input-border-color); border-radius: 6px; font-family: inherit; background: var(--input-bg-color); color: var(--text-color); box-sizing: border-box;"></textarea>
+                </div>
+            </div>
+
+            <!-- 5. VZHĽAD -->
+            <div class="acc-item" data-acc>
+                <div class="acc-head">
+                    <div class="acc-icon">🎨</div>
+                    <div class="acc-label">
+                        <div class="acc-name">Vzhľad aplikácie</div>
+                        <div class="acc-sub">Tmavý / svetlý režim</div>
+                    </div>
+                    <div class="acc-arrow">›</div>
+                </div>
+                <div class="acc-body">
+                    <label style="display: flex; align-items: center; justify-content: space-between; font-weight: normal; margin: 0; text-transform: none; font-size: 15px; color: var(--text-color);">
+                        <span>Svetlý režim</span>
+                        <label for="theme-toggle" style="display: flex; align-items: center; cursor: pointer;">
+                            <input type="checkbox" id="theme-toggle" style="display: none;">
+                            <span style="position: relative; width: 44px; height: 24px; background-color: #374151; border-radius: 9999px; transition: background-color 0.2s;">
+                                <span style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background-color: white; border-radius: 9999px; transition: transform 0.2s;"></span>
+                            </span>
+                        </label>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 6. ZÁLOHA A DÁTA -->
+            <div class="acc-item" data-acc>
+                <div class="acc-head">
+                    <div class="acc-icon">☁️</div>
+                    <div class="acc-label">
+                        <div class="acc-name">Záloha a obnova dát</div>
+                        <div class="acc-sub">Export do JSON · import zo súboru</div>
+                    </div>
+                    <div class="acc-arrow">›</div>
+                </div>
+                <div class="acc-body">
+                    <button onclick="inteligentnaZaloha()" class="btn-primary" style="width: 100%; padding: 12px; font-size: 15px; margin-bottom: 10px;">💾 Exportovať zálohu</button>
+                    <label for="import-zalohy" class="btn-secondary" style="width: 100%; padding: 12px; font-size: 15px; text-align: center; cursor: pointer; box-sizing: border-box; display: inline-block; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: bold; border-radius: 6px;">📂 Obnoviť zo zálohy</label>
+                    <input type="file" id="import-zalohy" accept=".json" style="display: none;" onchange="obnovitZalohu(event)">
+                </div>
+            </div>
+
+        </div>
+
+        <!-- STICKY SAVE BAR — viditeľný iba v kontexte Nastavení -->
+        <div class="settings-sticky-save">
+            <span class="settings-save-status" id="settings-save-status"></span>
+            <button id="ulozit-profil-btn" class="btn-primary">💾 Uložiť zmeny</button>
+        </div>
+    </div>
+
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="prepniTab('tab-ponuka', this)"><span>📝</span><span>Ponuka</span></div>
+        <div class="nav-item" onclick="prepniTab('tab-katalog', this)"><span>📚</span><span>Katalóg</span></div>
+        <div class="nav-item" onclick="prepniTab('tab-archiv', this)"><span>📁</span><span>Archív</span></div>
+        <div class="nav-item" onclick="prepniTab('tab-nastavenia', this)"><span>⚙️</span><span>Nastavenia</span></div>
+    </div>
+
+    <script src="logo-firmy.js"></script>
+    <script src="app.js"></script>
+    <script>
+        function prepniTab(tabId, element) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            element.classList.add('active');
+            window.scrollTo(0, 0); 
+        }
+
+        // ========== ACCORDION NASTAVENIA ==========
+        document.addEventListener('DOMContentLoaded', function() {
+            // Accordion toggle
+            document.querySelectorAll('.acc-item[data-acc] .acc-head').forEach(head => {
+                head.addEventListener('click', function() {
+                    const item = head.parentElement;
+                    const wasOpen = item.classList.contains('open');
+                    // Zatvorí všetky, otvorí iba kliknutú (klasické accordion správanie)
+                    document.querySelectorAll('.acc-item[data-acc]').forEach(i => i.classList.remove('open'));
+                    if (!wasOpen) item.classList.add('open');
+                });
+            });
+
+            // Dirty state indicator - zobrazí "● neuložené" keď používateľ upraví akékoľvek pole
+            const statusEl = document.getElementById('settings-save-status');
+            const tabNastavenia = document.getElementById('tab-nastavenia');
+            let dirty = false;
+
+            function markDirty() {
+                if (dirty) return;
+                dirty = true;
+                statusEl.textContent = '● neuložené';
+                statusEl.className = 'settings-save-status dirty';
+            }
+            function markSaved() {
+                dirty = false;
+                statusEl.textContent = '✓ uložené';
+                statusEl.className = 'settings-save-status saved';
+                setTimeout(() => { if (!dirty) { statusEl.textContent = ''; statusEl.className = 'settings-save-status'; } }, 2500);
+            }
+
+            // Sleduje zmeny vo všetkých inputoch/textarea/checkboxoch v Nastaveniach
+            tabNastavenia.addEventListener('input', markDirty);
+            tabNastavenia.addEventListener('change', markDirty);
+
+            // Keď používateľ klikne Uložiť zmeny, aktivuje sa markSaved po tom čo app.js urobí svoju prácu
+            const saveBtn = document.getElementById('ulozit-profil-btn');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', function() {
+                    // Krátke oneskorenie aby sa najprv vykonala uložovacia logika v app.js
+                    setTimeout(markSaved, 100);
+                });
+            }
+        });
+    </script>
+</body>
+</html>

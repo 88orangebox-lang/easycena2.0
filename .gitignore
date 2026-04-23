@@ -1,0 +1,49 @@
+# ===== OS súbory =====
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ===== Editor / IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# ===== Node / npm (pre prípad, že budeš neskôr pridávať build nástroje) =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json.bak
+
+# ===== Environment a citlivé údaje =====
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ===== Logy =====
+*.log
+logs/
+
+# ===== Build / dist výstupy =====
+dist/
+build/
+out/
+.cache/
+.parcel-cache/
+
+# ===== Dočasné súbory =====
+*.tmp
+*.bak
+*.old
+*.orig
+
+# ===== Zálohy exportované z aplikácie =====
+easycena_zaloha_*.json
