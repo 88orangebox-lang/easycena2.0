@@ -575,7 +575,7 @@ if (!nasepkavacDiv) {
 function ukazNasepkavac(inputElement, vsetko = false) {
     const hodnota = inputElement.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     nasepkavacDiv.innerHTML = '';
-    
+
     const jeVBaliku = inputElement.classList.contains('b-nazov');
     const zoradenyKatalog = [...katalog].sort((a, b) => a.nazov.localeCompare(b.nazov, 'sk'));
     const zhody = zoradenyKatalog.filter(p => {
@@ -584,21 +584,31 @@ function ukazNasepkavac(inputElement, vsetko = false) {
         const nazovBezDiakritiky = p.nazov.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
         return vsetko || nazovBezDiakritiky.includes(hodnota);
     });
-    
+
+    // Pre klávesnicovú navigáciu si pamätáme, ktorý input je "aktívny"
+    nasepkavacDiv._aktivnyInput = inputElement;
+
     if (zhody.length > 0) {
         zhody.forEach(polozka => {
             const div = document.createElement('div');
             div.className = 'nasepkavac-polozka';
-            
+
+            // Farebná bodka kategórie / balíčka
+            const triedaBodky = polozka.typ === 'balik'
+                ? 'k-balik'
+                : (polozka.kategoria === 'zariadenie' ? 'k-zariadenie'
+                    : polozka.kategoria === 'praca' ? 'k-praca'
+                    : 'k-material');
+
             if (polozka.typ === 'balik' && !jeVBaliku) {
                 const pocet = polozka.polozky ? polozka.polozky.length : 0;
-                div.innerHTML = `<strong>📦 ${polozka.nazov}</strong> <small>(${pocet} položiek)</small>`;
+                div.innerHTML = `<span class="nasepkavac-bodka ${triedaBodky}"></span><span class="np-text"><strong>📦 ${polozka.nazov}</strong> <small>(${pocet} položiek)</small></span>`;
             } else {
-                div.innerText = `${polozka.nazov} - ${polozka.cena} € / ${polozka.mj || 'ks'}`;
+                div.innerHTML = `<span class="nasepkavac-bodka ${triedaBodky}"></span><span class="np-text">${polozka.nazov} - ${polozka.cena} € / ${polozka.mj || 'ks'}</span>`;
             }
-            
-            div.onmousedown = (e) => {
-                e.preventDefault(); 
+
+            // Centrálny výber — dostupný pre klik aj pre Enter
+            const vyberPolozku = () => {
                 if (jeVBaliku) {
                     const riadok = inputElement.closest('.balik-polozka-riadok');
                     inputElement.value = polozka.nazov;
@@ -618,7 +628,7 @@ function ukazNasepkavac(inputElement, vsetko = false) {
                         riadok.dataset.kategoria = polozka.kategoria;
                         riadok.dataset.mj = polozka.mj || 'ks';
                         riadok.dataset.dph = polozka.dph || '23';
-                        
+
                         // Zobrazenie a naplnenie technického popisu z katalógu
                         const popisArea = riadok.querySelector('.polozka-popis');
                         if (popisArea) {
@@ -636,9 +646,17 @@ function ukazNasepkavac(inputElement, vsetko = false) {
                 }
                 schovajNasepkavac();
             };
+
+            div.onmousedown = (e) => {
+                e.preventDefault();
+                vyberPolozku();
+            };
+            // Reference pre klávesnicový Enter
+            div._vyberPolozku = vyberPolozku;
+
             nasepkavacDiv.appendChild(div);
         });
-        
+
         const rect = inputElement.getBoundingClientRect();
         nasepkavacDiv.style.left = rect.left + window.scrollX + 'px';
         nasepkavacDiv.style.top = rect.bottom + window.scrollY + 'px';
@@ -648,7 +666,46 @@ function ukazNasepkavac(inputElement, vsetko = false) {
         schovajNasepkavac();
     }
 }
-function schovajNasepkavac() { nasepkavacDiv.style.display = 'none'; }
+function schovajNasepkavac() {
+    nasepkavacDiv.style.display = 'none';
+    nasepkavacDiv._aktivnyInput = null;
+}
+
+// ==========================================
+// KLÁVESNICOVÁ NAVIGÁCIA V NAŠEPKÁVAČI
+// ==========================================
+document.addEventListener('keydown', (e) => {
+    // Reagujeme len ak je našepkávač zobrazený
+    if (!nasepkavacDiv || nasepkavacDiv.style.display !== 'block') return;
+    // ... a len ak má focus jeho "aktívny" input (aby sme neblokovali inú klávesnicu)
+    if (document.activeElement !== nasepkavacDiv._aktivnyInput) return;
+
+    const polozky = Array.from(nasepkavacDiv.querySelectorAll('.nasepkavac-polozka'));
+    if (polozky.length === 0) return;
+
+    let idx = polozky.findIndex(p => p.classList.contains('zvyraznena'));
+
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        idx = (idx < 0) ? 0 : (idx + 1) % polozky.length;
+        polozky.forEach((p, i) => p.classList.toggle('zvyraznena', i === idx));
+        polozky[idx].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        idx = (idx <= 0) ? polozky.length - 1 : idx - 1;
+        polozky.forEach((p, i) => p.classList.toggle('zvyraznena', i === idx));
+        polozky[idx].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+        if (idx < 0) return; // nič neoznačené — nech funguje default Enter (submit)
+        e.preventDefault();
+        if (typeof polozky[idx]._vyberPolozku === 'function') {
+            polozky[idx]._vyberPolozku();
+        }
+    } else if (e.key === 'Escape') {
+        e.preventDefault();
+        schovajNasepkavac();
+    }
+});
 
 // ==========================================
 // MATEMATIKA

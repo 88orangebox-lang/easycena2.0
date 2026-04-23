@@ -122,8 +122,15 @@
         .nav-icon { font-size: 20px; }
         
         #vlastny-nasepkavac { position: absolute; display: none; background: var(--input-bg-color); border: 2px solid var(--accent-color); border-radius: 0 0 6px 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.5); z-index: 1001; max-height: 250px; overflow-y: auto; color: var(--text-color); }
-        .nasepkavac-polozka { padding: 12px; border-bottom: 1px solid var(--input-border-color); cursor: pointer; }
-        .nasepkavac-polozka:hover { background-color: var(--secondary-btn-bg-color); }
+        .nasepkavac-polozka { padding: 12px; border-bottom: 1px solid var(--input-border-color); cursor: pointer; display: flex; align-items: center; gap: 10px; }
+        .nasepkavac-polozka:hover,
+        .nasepkavac-polozka.zvyraznena { background-color: var(--secondary-btn-bg-color); }
+        .nasepkavac-polozka .np-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .nasepkavac-bodka { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 1px rgba(255,255,255,0.15); }
+        .nasepkavac-bodka.k-material { background: #facc15; }
+        .nasepkavac-bodka.k-zariadenie { background: #3b82f6; }
+        .nasepkavac-bodka.k-praca { background: #22c55e; }
+        .nasepkavac-bodka.k-balik { background: #a855f7; }
         
         p, small { color: var(--text-muted-color) !important; }
         .zlavovy-riadok { display: flex; justify-content: space-between; color: var(--danger-btn-bg-color); font-size: 14px; margin-bottom: 5px; }
