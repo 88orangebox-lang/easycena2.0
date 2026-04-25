@@ -193,6 +193,21 @@ function obnovRozpracovanuPonuku() {
     } else {
         generujNoveCislo();
     }
+    aktualizujNadpisPonuky();
+}
+
+// Dynamický titulok hero headera v Ponuke:
+// - Ak je vyplnené meno klienta → "Úprava ponuky 🖊️"
+// - Ak je prázdne → "Nová ponuka 📝"
+function aktualizujNadpisPonuky() {
+    const titulok = document.getElementById('ponuka-titulok');
+    if (!titulok) return;
+    const meno = (document.getElementById('meno-zakaznika')?.value || '').trim();
+    if (meno) {
+        titulok.innerHTML = 'Úprava ponuky <span class="hero-emoji">🖊️</span>';
+    } else {
+        titulok.innerHTML = 'Nová ponuka <span class="hero-emoji">📝</span>';
+    }
 }
 
 function generujNoveCislo() {
@@ -559,8 +574,15 @@ document.getElementById('nova-ponuka-btn').addEventListener('click', () => {
         generujNoveCislo();
         prepocitajSumy();
         ulozRozpracovanuPonuku();
+        aktualizujNadpisPonuky();
     }
 });
+
+// Live update titulku pri písaní mena klienta
+(function initPonukaTitulokListener() {
+    const meno = document.getElementById('meno-zakaznika');
+    if (meno) meno.addEventListener('input', aktualizujNadpisPonuky);
+})();
 
 // ==========================================
 // UNIVERZÁLNY NAŠEPKÁVAČ 
