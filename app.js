@@ -1547,7 +1547,29 @@ function nacitajZArchivu(id) {
     if(!confirm('Aktuálne rozpísaná ponuka sa prepíše. Pokračovať?')) return;
     const ponuka = archiv.find(p => p.id === id);
     if(ponuka) {
-        localStorage.setItem('easycena_rozpracovana', JSON.stringify(ponuka));
+        // Hlboká kópia — aby sme úpravami neovplyvnili záznam v archíve
+        const dataNaPlochu = JSON.parse(JSON.stringify(ponuka));
+
+        // DÔLEŽITÉ: "Otvoriť" znamená otvoriť ako CENOVÚ PONUKU, aj keď bola
+        // ponuka v archíve naposledy uložená v režime Súpis prác. Pre režim
+        // súpisu existuje samostatné tlačidlo "Otvoriť Súpis prác".
+        dataNaPlochu.rezimSupisPrac = false;
+        if (Array.isArray(dataNaPlochu.polozky)) {
+            dataNaPlochu.polozky.forEach(p => {
+                if (p.typRiadku === 'balik' && Array.isArray(p.polozky)) {
+                    p.polozky.forEach(bp => { delete bp.zamknutaCena; });
+                } else {
+                    delete p.zamknutaCena;
+                }
+            });
+        }
+        if (Array.isArray(dataNaPlochu.zlavy)) {
+            dataNaPlochu.zlavy.forEach(z => { delete z.zamknuta; });
+        }
+        // Pre istotu vypneme režim aj na úrovni runtime, kým bežíme obnovu
+        window.jeRezimSupis = false;
+
+        localStorage.setItem('easycena_rozpracovana', JSON.stringify(dataNaPlochu));
         obnovRozpracovanuPonuku();
         prepocitajSumy();
         document.querySelector('.nav-item').click();
