@@ -75,7 +75,15 @@
         input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; margin: 0; }
         input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
-        input[type="text"], input[type="number"], input[type="email"], select, textarea { width: 100%; padding: 12px; margin-bottom: 12px; background-color: var(--input-bg-color) !important; border: 1px solid var(--input-border-color) !important; border-radius: 6px; font-size: 16px; color: var(--text-color) !important; box-sizing: border-box; transition: all 0.2s; }
+        input[type="text"], input[type="number"], input[type="email"], input[type="date"], input[type="tel"], select, textarea { width: 100%; padding: 12px; margin-bottom: 12px; background-color: var(--input-bg-color) !important; border: 1px solid var(--input-border-color) !important; border-radius: 6px; font-size: 16px; color: var(--text-color) !important; box-sizing: border-box; transition: all 0.2s; }
+        /* Dark mode — invertujeme natívnu ikonu kalendára aby bola viditeľná na tmavom pozadí */
+        body:not([data-theme="light"]) input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1) brightness(0.85);
+            cursor: pointer;
+        }
+        body[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+        }
         input:focus, select:focus, textarea:focus { border-color: var(--accent-color) !important; outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-color) 20%, transparent) !important; }
         input::placeholder, textarea::placeholder { color: var(--text-muted-color) !important; }
         
