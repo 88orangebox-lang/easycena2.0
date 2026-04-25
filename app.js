@@ -1009,21 +1009,57 @@ function dokonciUlozenieKatalogu() {
     alert('Uložené do katalógu.');
 }
 
-// Stav pohľadu na katalóg
+// Stav pohľadu na katalóg (hľadanie + filter + triedenie)
 let katalogHladaj = '';
+const _katalogView = JSON.parse(localStorage.getItem('easycena_katalog_view') || '{}');
+let katalogFilter  = _katalogView.filter  || 'vsetky';   // vsetky | material | zariadenie | praca | balik | napoplnenie
+let katalogTriedit = _katalogView.triedit || 'nazov-asc'; // nazov-asc | nazov-desc | cena-asc | cena-desc
+
+function _ulozKatalogView() {
+    localStorage.setItem('easycena_katalog_view', JSON.stringify({
+        filter: katalogFilter,
+        triedit: katalogTriedit
+    }));
+}
+
+// Helper: virtuálna cena pre triedenie — položka má vlastnú cenu, balíček počíta sumu
+function _katalogCenaPreTriedenie(p) {
+    if (p.typ === 'balik' && Array.isArray(p.polozky)) {
+        return p.polozky.reduce((s, x) => s + (parseFloat(x.cena) || 0) * (parseFloat(x.mnozstvo) || 0), 0);
+    }
+    return parseFloat(p.cena) || 0;
+}
 
 function vykresliKatalog() {
     const zoznam = document.getElementById('zoznam-v-katalogu');
     const statBox = document.getElementById('katalog-statistiky');
     zoznam.innerHTML = '';
 
-    // 1. Triedenie (zatiaľ abecedne, ďalšie možnosti pridáme v bode 2)
-    let zoradenyKatalog = [...katalog].sort((a, b) => a.nazov.localeCompare(b.nazov, 'sk'));
+    // 1a. Filter podľa typu (Všetky / Materiál / Zariadenie / Práca / Balíček / Na doplnenie)
+    let zoradenyKatalog = katalog.filter(p => {
+        if (katalogFilter === 'vsetky')      return true;
+        if (katalogFilter === 'balik')       return p.typ === 'balik';
+        if (katalogFilter === 'napoplnenie') return !!p.vyzadujeKontrolu;
+        // material / zariadenie / praca — len bežné položky príslušnej kategórie
+        return p.typ !== 'balik' && p.kategoria === katalogFilter;
+    });
 
-    // 2. Filter podľa hľadania (názov položky/balíčka, bez diakritiky)
+    // 1b. Filter podľa hľadania (názov položky/balíčka, bez diakritiky)
     const hladaj = _bezDiakritiky(katalogHladaj.trim());
     if (hladaj !== '') {
         zoradenyKatalog = zoradenyKatalog.filter(p => _bezDiakritiky(p.nazov).includes(hladaj));
+    }
+
+    // 1c. Triedenie
+    zoradenyKatalog = zoradenyKatalog.slice();
+    if (katalogTriedit === 'nazov-asc') {
+        zoradenyKatalog.sort((a, b) => a.nazov.localeCompare(b.nazov, 'sk'));
+    } else if (katalogTriedit === 'nazov-desc') {
+        zoradenyKatalog.sort((a, b) => b.nazov.localeCompare(a.nazov, 'sk'));
+    } else if (katalogTriedit === 'cena-desc') {
+        zoradenyKatalog.sort((a, b) => _katalogCenaPreTriedenie(b) - _katalogCenaPreTriedenie(a));
+    } else if (katalogTriedit === 'cena-asc') {
+        zoradenyKatalog.sort((a, b) => _katalogCenaPreTriedenie(a) - _katalogCenaPreTriedenie(b));
     }
 
     // 3. Štatistiky (počítané z celého katalógu, aby boli stabilné)
@@ -1033,8 +1069,9 @@ function vykresliKatalog() {
         const pocetNaDoplnenie = katalog.filter(p => p.vyzadujeKontrolu).length;
         const zobrazene = zoradenyKatalog.length;
         const celkom = katalog.length;
+        const filtrAktivny = (hladaj !== '' || katalogFilter !== 'vsetky');
 
-        const ozn = (hladaj && zobrazene !== celkom)
+        const ozn = (filtrAktivny && zobrazene !== celkom)
             ? `<span class="stat-item">📂 Zobrazené: <span class="stat-cislo">${zobrazene}</span> z ${celkom}</span>`
             : `<span class="stat-item">📦 Položiek: <span class="stat-cislo">${pocetPoloziek}</span></span>
                <span class="stat-item">📋 Balíčkov: <span class="stat-cislo">${pocetBalickov}</span></span>`;
@@ -1050,9 +1087,13 @@ function vykresliKatalog() {
     if (zoradenyKatalog.length === 0) {
         const prazdny = document.createElement('div');
         prazdny.className = 'katalog-prazdny';
-        prazdny.innerText = katalog.length === 0
-            ? 'Katalóg je zatiaľ prázdny. Pridaj prvú položku alebo balíček vyššie.'
-            : 'Žiadna položka neodpovedá hľadanému výrazu.';
+        if (katalog.length === 0) {
+            prazdny.innerText = 'Katalóg je zatiaľ prázdny. Pridaj prvú položku alebo balíček vyššie.';
+        } else if (hladaj !== '') {
+            prazdny.innerText = 'Žiadna položka neodpovedá hľadanému výrazu.';
+        } else {
+            prazdny.innerText = 'V tomto filtri nie sú žiadne položky.';
+        }
         zoznam.appendChild(prazdny);
         return;
     }
@@ -1101,21 +1142,23 @@ function vykresliKatalog() {
 }
 
 // ==========================================
-// VYHĽADÁVANIE V KATALÓGU
+// VYHĽADÁVANIE / FILTER / TRIEDENIE V KATALÓGU
 // ==========================================
 (function initKatalogOvladace() {
     const input = document.getElementById('katalog-hladaj');
     const wrap  = document.getElementById('katalog-search-wrap');
     const clear = document.getElementById('katalog-hladaj-clear');
-    if (!input || !wrap || !clear) return;
+    const filterBox = document.getElementById('katalog-filter');
+    const triedit   = document.getElementById('katalog-triedit');
+    if (!input || !wrap || !clear || !filterBox || !triedit) return;
 
-    const refresh = () => {
+    // --- Search ---
+    const refreshSearch = () => {
         katalogHladaj = input.value;
         wrap.classList.toggle('has-value', input.value.length > 0);
         vykresliKatalog();
     };
-
-    input.addEventListener('input', refresh);
+    input.addEventListener('input', refreshSearch);
     clear.addEventListener('click', () => {
         input.value = '';
         katalogHladaj = '';
@@ -1131,6 +1174,34 @@ function vykresliKatalog() {
             wrap.classList.remove('has-value');
             vykresliKatalog();
         }
+    });
+
+    // --- Filter pills (typ položky) ---
+    const oznacAktivnyFilter = () => {
+        filterBox.querySelectorAll('.katalog-pill').forEach(btn => {
+            btn.classList.toggle('aktivny', btn.dataset.filter === katalogFilter);
+        });
+    };
+    oznacAktivnyFilter();
+    filterBox.addEventListener('click', (e) => {
+        const btn = e.target.closest('.katalog-pill');
+        if (!btn) return;
+        katalogFilter = btn.dataset.filter || 'vsetky';
+        oznacAktivnyFilter();
+        _ulozKatalogView();
+        vykresliKatalog();
+    });
+
+    // --- Triedenie ---
+    triedit.value = katalogTriedit;
+    if (triedit.value === '') {
+        triedit.value = 'nazov-asc';
+        katalogTriedit = 'nazov-asc';
+    }
+    triedit.addEventListener('change', () => {
+        katalogTriedit = triedit.value;
+        _ulozKatalogView();
+        vykresliKatalog();
     });
 })();
 

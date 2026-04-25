@@ -157,28 +157,28 @@
         .katalog-search-wrap.has-value button#katalog-hladaj-clear { display: block; }
         .archiv-search-wrap button#archiv-hladaj-clear:hover,
         .katalog-search-wrap button#katalog-hladaj-clear:hover { color: var(--text-color); }
-        .archiv-ovladace {
+        .archiv-ovladace, .katalog-ovladace {
             display: flex; flex-wrap: wrap; gap: 8px;
             align-items: center; margin-bottom: 10px;
         }
-        .archiv-filter {
+        .archiv-filter, .katalog-filter {
             display: inline-flex; gap: 0;
             border: 1px solid var(--input-border-color);
             border-radius: 6px; overflow: hidden; flex-wrap: wrap;
         }
-        .archiv-pill {
+        .archiv-pill, .katalog-pill {
             background: transparent; color: var(--text-muted-color);
             border: none; border-right: 1px solid var(--input-border-color);
             padding: 6px 12px; cursor: pointer; font-size: 13px;
             font-weight: 500; transition: background 0.15s, color 0.15s;
         }
-        .archiv-pill:last-child { border-right: none; }
-        .archiv-pill:hover { background: var(--secondary-btn-bg-color); color: var(--text-color); }
-        .archiv-pill.aktivny {
+        .archiv-pill:last-child, .katalog-pill:last-child { border-right: none; }
+        .archiv-pill:hover, .katalog-pill:hover { background: var(--secondary-btn-bg-color); color: var(--text-color); }
+        .archiv-pill.aktivny, .katalog-pill.aktivny {
             background: var(--accent-color); color: #000;
             font-weight: bold;
         }
-        .archiv-triedit {
+        .archiv-triedit, .katalog-triedit {
             margin-bottom: 0; padding: 6px 8px;
             font-size: 13px; flex: 0 1 auto; min-width: 0;
         }
@@ -687,6 +687,22 @@
                 <div class="katalog-search-wrap" id="katalog-search-wrap">
                     <input type="text" id="katalog-hladaj" placeholder="🔍 Hľadať položku alebo balíček…" autocomplete="off">
                     <button type="button" id="katalog-hladaj-clear" title="Vyčistiť hľadanie" aria-label="Vyčistiť hľadanie">✕</button>
+                </div>
+                <div class="katalog-ovladace">
+                    <div class="katalog-filter" id="katalog-filter" role="tablist" aria-label="Filter typu">
+                        <button type="button" class="katalog-pill aktivny" data-filter="vsetky">Všetky</button>
+                        <button type="button" class="katalog-pill" data-filter="material">🟡 Materiál</button>
+                        <button type="button" class="katalog-pill" data-filter="zariadenie">🔵 Zariadenie</button>
+                        <button type="button" class="katalog-pill" data-filter="praca">🟢 Práca</button>
+                        <button type="button" class="katalog-pill" data-filter="balik">🟣 Balíčky</button>
+                        <button type="button" class="katalog-pill" data-filter="napoplnenie">⚠️ Na doplnenie</button>
+                    </div>
+                    <select id="katalog-triedit" class="katalog-triedit" aria-label="Triedenie">
+                        <option value="nazov-asc">🔤 Názov (A → Z)</option>
+                        <option value="nazov-desc">🔤 Názov (Z → A)</option>
+                        <option value="cena-desc">💰 Cena (najvyššia)</option>
+                        <option value="cena-asc">💰 Cena (najnižšia)</option>
+                    </select>
                 </div>
                 <div class="katalog-statistiky" id="katalog-statistiky"></div>
             </div>
