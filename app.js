@@ -871,9 +871,9 @@ function pridajRiadokDoBalika(kategoria='material', nazov='', mnoz=1, mj='ks', c
     div.style.marginBottom = '5px';
     div.innerHTML = `
         <select class="b-kat" style="flex: 1; padding: 6px; font-size: 14px;">
-            <option value="zariadenie" ${kategoria==='zariadenie'?'selected':''}>Zariadenie</option>
-            <option value="material" ${kategoria==='material'?'selected':''}>Materiál</option>
-            <option value="praca" ${kategoria==='praca'?'selected':''}>Práca</option>
+            <option value="zariadenie" ${kategoria==='zariadenie'?'selected':''}>🔵 Zariadenie</option>
+            <option value="material" ${kategoria==='material'?'selected':''}>🟡 Materiál</option>
+            <option value="praca" ${kategoria==='praca'?'selected':''}>🟢 Práca</option>
         </select>
         <input type="text" class="b-nazov" value="${nazov}" placeholder="Názov" style="flex: 2; padding: 6px; font-size: 14px;">
         <input type="number" class="b-mnoz" value="${mnoz}" placeholder="Mn." style="flex: 0.8; padding: 6px; font-size: 14px;">
