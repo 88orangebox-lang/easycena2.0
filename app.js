@@ -1262,27 +1262,32 @@ function vykresliArchiv() {
 
     filtrovane.forEach(ponuka => {
         const div = document.createElement('div');
-        div.style.borderBottom = "1px solid #333333"; // Tmavšia deliaca čiara pre dark mode
-        div.style.padding = "15px 0";
-        let btnSupisHtml = ponuka.obsahujeSupis
-            ? `<button class="btn-success btn-small" onclick="vytvorSupisPrac(${ponuka.id})" style="flex: 1 1 100%; margin-bottom: 3px; background-color: #f97316 !important;">✏️ Otvoriť Súpis prác</button>`
-            : `<button class="btn-success btn-small" onclick="vytvorSupisPrac(${ponuka.id})" style="flex: 1 1 100%; margin-bottom: 3px;">📝 Vytvoriť Súpis prác</button>`;
+        div.className = 'archiv-karta';
+
+        const stitokHtml = ponuka.obsahujeSupis
+            ? '<span class="archiv-stitok zeleny">✓ Súpis</span>'
+            : '<span class="archiv-stitok neutralny">📝 Iba ponuka</span>';
+
+        const btnSupisHtml = ponuka.obsahujeSupis
+            ? `<button class="btn-success btn-small archiv-btn-supis archiv-btn-supis-otvor" onclick="vytvorSupisPrac(${ponuka.id})">✏️ Otvoriť Súpis prác</button>`
+            : `<button class="btn-success btn-small archiv-btn-supis" onclick="vytvorSupisPrac(${ponuka.id})">📝 Vytvoriť Súpis prác</button>`;
 
         div.innerHTML = `
-            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                <strong style="color:#facc15;">
+            <div class="archiv-karta-hlavicka">
+                <div class="archiv-karta-cislo">
                     ${ponuka.cislo || 'Bez-čísla'}
-                    ${ponuka.obsahujeSupis ? ' <span style="background:var(--success-btn-bg-color); color:#fff; padding:2px 6px; border-radius:4px; font-size:11px; margin-left:8px; vertical-align:middle;">✓ SÚPIS</span>' : ''}
-                </strong>
-                <strong style="color:#ffffff;">${ponuka.sumaZobrazena} €</strong>
+                    ${stitokHtml}
+                </div>
+                <div class="archiv-karta-suma">${ponuka.sumaZobrazena} €</div>
             </div>
-            <div style="margin-bottom:10px; color:#ffffff; font-size:15px;">
-                ${ponuka.meno || 'Neznámy zákazník'} <span style="color:#9ca3af; font-size:13px;">(${ponuka.datum})</span>
+            <div class="archiv-karta-zakaznik">
+                ${ponuka.meno || 'Neznámy zákazník'}
+                <span class="archiv-karta-datum">(${ponuka.datum})</span>
             </div>
-            <div style="display:flex; flex-wrap:wrap; gap:5px;">
+            <div class="archiv-karta-tlacidla">
                 ${btnSupisHtml}
-                <button class="btn-primary btn-small" onclick="duplikujZArchivu(${ponuka.id})" style="flex: 1.2;">Duplikovať</button>
-                <button class="btn-secondary btn-small" onclick="nacitajZArchivu(${ponuka.id})" style="flex: 1;">Otvoriť</button>
+                <button class="btn-primary btn-small archiv-btn-duplikuj" onclick="duplikujZArchivu(${ponuka.id})">Duplikovať</button>
+                <button class="btn-secondary btn-small archiv-btn-otvor" onclick="nacitajZArchivu(${ponuka.id})">Otvoriť</button>
                 <button class="btn-danger btn-small" onclick="zmazZArchivu(${ponuka.id})">Zmazať</button>
             </div>
         `;
