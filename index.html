@@ -174,6 +174,22 @@
         body[data-theme="light"] .btn-hero-cta:hover {
             box-shadow: 0 3px 12px rgba(0, 86, 179, 0.35);
         }
+        /* Zelený variant pre kontextové CTA (Pridať z katalógu, atď.) */
+        .btn-hero-cta.success {
+            background: var(--success-btn-bg-color);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
+        }
+        .btn-hero-cta.success:hover {
+            box-shadow: 0 3px 12px rgba(34, 197, 94, 0.35);
+        }
+        /* Kompaktný variant — používa sa keď CTA stojí v karte
+           a nepotrebuje toľko vertikálneho priestoru ako hlavné CTA. */
+        .btn-hero-cta.compact {
+            padding: 13px 16px;
+            font-size: 14px;
+            letter-spacing: 0.4px;
+        }
 
         /* ===== Toolbar pre Archív aj Katalóg (search + štatistiky) ===== */
         .archiv-toolbar, .katalog-toolbar {
@@ -615,7 +631,7 @@
         <div class="card" data-section="polozky">
             <h3 class="section-label">Položky ponuky</h3>
             <div id="zoznam-poloziek"></div>
-            <button type="button" class="btn-primary" id="pridat-polozku-btn" style="margin-top: 10px;">+ Pridať položku</button>
+            <button type="button" class="btn-hero-cta success compact" id="pridat-polozku-btn" style="margin: 10px 0 0 0;">+ PRIDAŤ Z KATALÓGU</button>
         </div>
         
         <div class="card discount-card" data-section="polozky">
