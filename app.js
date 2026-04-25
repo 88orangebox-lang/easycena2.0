@@ -1101,42 +1101,46 @@ function vykresliKatalog() {
     zoradenyKatalog.forEach((polozka) => {
         const povodnyIndex = katalog.indexOf(polozka);
         const div = document.createElement('div');
-        div.style.borderBottom = "1px solid #e5e7eb";
-        div.style.padding = "10px 0";
-        div.style.display = "flex";
-        div.style.justifyContent = "space-between";
-        div.style.alignItems = "center";
-        
-        let varovanie = '';
-        if (polozka.vyzadujeKontrolu) {
-            varovanie = '<br><span style="color: var(--danger-btn-bg-color); font-size: 12px; font-weight: bold;">⚠️ Doplniť údaje (Cena / DPH)</span>';
-            div.style.backgroundColor = 'color-mix(in srgb, var(--danger-btn-bg-color) 10%, transparent)';
-            div.style.paddingLeft = '10px';
-            div.style.borderLeft = '3px solid var(--danger-btn-bg-color)';
-        }
+        div.className = 'katalog-karta';
+        if (polozka.vyzadujeKontrolu) div.classList.add('varovanie');
 
+        // Trieda farebnej bodky podľa typu/kategórie (rovnako ako v našepkávači a v zozname ponuky)
+        const triedaBodky = polozka.typ === 'balik'
+            ? 'k-balik'
+            : (polozka.kategoria === 'zariadenie' ? 'k-zariadenie'
+                : polozka.kategoria === 'praca' ? 'k-praca'
+                : 'k-material');
+
+        // Štítok varovania pre vyzadujeKontrolu
+        const stitokWarn = polozka.vyzadujeKontrolu
+            ? '<span class="katalog-karta-stitok-warn">⚠️ Doplniť cenu / DPH</span>'
+            : '';
+
+        // Nadpis a detail riadok podľa typu
+        let nazovHtml, detailHtml;
         if (polozka.typ === 'balik') {
             const pocet = polozka.polozky ? polozka.polozky.length : 0;
-            const sumaBalika = polozka.polozky.reduce((sum, p) => sum + (p.cena * p.mnozstvo), 0);
-            div.innerHTML = `
-                <div><strong>📦 ${polozka.nazov}</strong><br><small>Balíček (${pocet} položiek) - cca ${sumaBalika.toFixed(2)} €</small>${varovanie}</div>
-                <div style="display: flex; gap: 5px;">
-                    <button class="btn-secondary btn-small" onclick="duplikujKatalog(${povodnyIndex})" title="Duplikovať">📄</button>
-                    <button class="btn-secondary btn-small" onclick="upravKatalog(${povodnyIndex})" title="Upraviť">✏️</button>
-                    <button class="btn-danger btn-small" onclick="zmazZKatalogu(${povodnyIndex})" title="Zmazať">X</button>
-                </div>
-            `;
+            const sumaBalika = (polozka.polozky || []).reduce((sum, p) => sum + ((parseFloat(p.cena) || 0) * (parseFloat(p.mnozstvo) || 0)), 0);
+            nazovHtml  = `📦 ${polozka.nazov}`;
+            detailHtml = `Balíček (${pocet} položiek) — cca ${sumaBalika.toFixed(2)} €`;
         } else {
-            let ikona = polozka.kategoria === 'zariadenie' ? '⚙️' : polozka.kategoria === 'material' ? '🧱' : '🔧';
-            div.innerHTML = `
-                <div><strong>${ikona} ${polozka.nazov}</strong><br><small>${polozka.cena.toFixed(2)} € / ${polozka.mj || 'ks'}</small>${varovanie}</div>
-                <div style="display: flex; gap: 5px;">
-                    <button class="btn-secondary btn-small" onclick="duplikujKatalog(${povodnyIndex})" title="Duplikovať">📄</button>
-                    <button class="btn-secondary btn-small" onclick="upravKatalog(${povodnyIndex})" title="Upraviť">✏️</button>
-                    <button class="btn-danger btn-small" onclick="zmazZKatalogu(${povodnyIndex})" title="Zmazať">X</button>
-                </div>
-            `;
+            const cena = (parseFloat(polozka.cena) || 0).toFixed(2);
+            nazovHtml  = polozka.nazov;
+            detailHtml = `${cena} € / ${polozka.mj || 'ks'}`;
         }
+
+        div.innerHTML = `
+            <span class="katalog-karta-bodka ${triedaBodky}"></span>
+            <div class="katalog-karta-info">
+                <span class="katalog-karta-nazov">${nazovHtml}${stitokWarn}</span>
+                <div class="katalog-karta-detail">${detailHtml}</div>
+            </div>
+            <div class="katalog-karta-tlacidla">
+                <button class="btn-secondary btn-small" onclick="duplikujKatalog(${povodnyIndex})" title="Duplikovať">📄</button>
+                <button class="btn-secondary btn-small" onclick="upravKatalog(${povodnyIndex})" title="Upraviť">✏️</button>
+                <button class="btn-danger btn-small" onclick="zmazZKatalogu(${povodnyIndex})" title="Zmazať">X</button>
+            </div>
+        `;
         zoznam.appendChild(div);
     });
 }

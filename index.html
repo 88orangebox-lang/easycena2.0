@@ -260,6 +260,57 @@
         .archiv-karta-tlacidla .archiv-btn-supis-otvor { background-color: #f97316 !important; }
         .archiv-karta-tlacidla .archiv-btn-duplikuj { flex: 1.2; }
         .archiv-karta-tlacidla .archiv-btn-otvor    { flex: 1; }
+
+        /* ===== Karta jednej položky/balíčka v Katalógu ===== */
+        .katalog-karta {
+            display: flex; align-items: center; gap: 10px;
+            border: 1px solid var(--input-border-color);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            background: var(--card-bg-color);
+            transition: border-color 0.15s;
+        }
+        .katalog-karta:hover { border-color: var(--accent-color); }
+        .katalog-karta.varovanie {
+            border-left: 3px solid var(--danger-btn-bg-color);
+            background: color-mix(in srgb, var(--danger-btn-bg-color) 10%, transparent);
+        }
+        .katalog-karta-bodka {
+            width: 8px; height: 8px; border-radius: 50%;
+            flex-shrink: 0;
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.15);
+        }
+        .katalog-karta-bodka.k-material   { background: #facc15; }
+        .katalog-karta-bodka.k-zariadenie { background: #3b82f6; }
+        .katalog-karta-bodka.k-praca      { background: #22c55e; }
+        .katalog-karta-bodka.k-balik      { background: #a855f7; }
+        .katalog-karta-info {
+            flex: 1; min-width: 0; overflow: hidden;
+        }
+        .katalog-karta-nazov {
+            color: var(--text-color);
+            font-weight: bold;
+            font-size: 14px;
+            display: block;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .katalog-karta-detail {
+            color: var(--text-muted-color);
+            font-size: 12px;
+            margin-top: 2px;
+        }
+        .katalog-karta-stitok-warn {
+            display: inline-block;
+            background: var(--danger-btn-bg-color); color: #fff;
+            padding: 1px 6px; border-radius: 4px;
+            font-size: 10px; font-weight: bold;
+            text-transform: uppercase; letter-spacing: 0.3px;
+            margin-left: 6px; vertical-align: middle;
+        }
+        .katalog-karta-tlacidla {
+            display: flex; gap: 5px; flex-shrink: 0;
+        }
         
         .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background-color: var(--card-bg-color); border-top: 1px solid var(--border-color); display: flex; justify-content: space-around; z-index: 1000; padding-bottom: env(safe-area-inset-bottom); }
         .nav-item { flex: 1; text-align: center; padding: 12px 0; color: var(--text-muted-color); font-weight: bold; font-size: 12px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: color 0.2s; text-transform: uppercase; }
