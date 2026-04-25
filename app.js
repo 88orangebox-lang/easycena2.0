@@ -406,10 +406,10 @@ function pridajZlavu(typ = 'globalna', hodnota = 0, zamknuta = '') {
 
     div.innerHTML = `
         <select class="zlava-typ" style="flex: 2;" ${zamknuta === 'ano' ? 'disabled' : ''}>
-            <option value="zariadenie" ${typ==='zariadenie'?'selected':''}>Na zariadenia</option>
-            <option value="material" ${typ==='material'?'selected':''}>Na materiál</option>
-            <option value="praca" ${typ==='praca'?'selected':''}>Na prácu</option>
-            <option value="globalna" ${typ==='globalna'?'selected':''}>Na celú ponuku</option>
+            <option value="zariadenie" ${typ==='zariadenie'?'selected':''}>🔵 Na zariadenia</option>
+            <option value="material" ${typ==='material'?'selected':''}>🟡 Na materiál</option>
+            <option value="praca" ${typ==='praca'?'selected':''}>🟢 Na prácu</option>
+            <option value="globalna" ${typ==='globalna'?'selected':''}>⚪ Na celú ponuku</option>
         </select>
         <input type="number" class="zlava-hodnota" value="${hodnota}" min="0" max="100" style="flex: 1;" placeholder="%" ${zamknuta === 'ano' ? 'readonly' : ''} ${zamknuta === 'ano' ? 'title="Klikni pre manuálnu úpravu"' : ''}>
         <button type="button" class="btn-danger btn-small zmazat-riadok-btn" style="flex: 0.5;">X</button>
