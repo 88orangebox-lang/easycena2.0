@@ -1169,14 +1169,69 @@ document.getElementById('ulozit-archiv-btn').addEventListener('click', () => {
     alert('Úspešne uložené v archíve.');
 });
 
+// Stav vyhľadávania v archíve
+let archivHladaj = '';
+
+// Helper: bezdiakritický lowercase pre vyhľadávanie
+function _bezDiakritiky(s) {
+    return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+// Helper: parsovanie sumaZobrazena ("1234.56") na číslo
+function _parsujSumu(s) {
+    if (s == null) return 0;
+    const cislo = parseFloat(String(s).replace(/\s/g, '').replace(',', '.'));
+    return isNaN(cislo) ? 0 : cislo;
+}
+
 function vykresliArchiv() {
     const zoznam = document.getElementById('zoznam-archivu');
+    const statBox = document.getElementById('archiv-statistiky');
     zoznam.innerHTML = '';
-    archiv.forEach(ponuka => {
+
+    // 1. Filter podľa hľadania (cislo, meno, datum)
+    const hladaj = _bezDiakritiky(archivHladaj.trim());
+    const filtrovane = hladaj === '' ? archiv : archiv.filter(p => {
+        const cislo = _bezDiakritiky(p.cislo);
+        const meno  = _bezDiakritiky(p.meno);
+        const datum = _bezDiakritiky(p.datum);
+        return cislo.includes(hladaj) || meno.includes(hladaj) || datum.includes(hladaj);
+    });
+
+    // 2. Štatistiky (počítané z filtrovaných záznamov, ale s celkovým kontextom)
+    if (statBox) {
+        const pocet = filtrovane.length;
+        const celkovyPocet = archiv.length;
+        const suma = filtrovane.reduce((s, p) => s + _parsujSumu(p.sumaZobrazena), 0);
+        const soSupisom = filtrovane.filter(p => p.obsahujeSupis).length;
+
+        const ozn = (hladaj && pocet !== celkovyPocet)
+            ? `<span class="stat-item">📂 Zobrazené: <span class="stat-cislo">${pocet}</span> z ${celkovyPocet}</span>`
+            : `<span class="stat-item">📂 Celkom: <span class="stat-cislo">${pocet}</span> ponúk</span>`;
+
+        statBox.innerHTML = `
+            ${ozn}
+            <span class="stat-item">💰 Spolu: <span class="stat-suma">${suma.toFixed(2)} €</span></span>
+            <span class="stat-item">✓ So súpisom: <span class="stat-cislo">${soSupisom}</span></span>
+        `;
+    }
+
+    // 3. Vykreslenie zoznamu
+    if (filtrovane.length === 0) {
+        const prazdny = document.createElement('div');
+        prazdny.className = 'archiv-prazdny';
+        prazdny.innerText = archiv.length === 0
+            ? 'Archív je zatiaľ prázdny. Po uložení ponuky sa tu objaví.'
+            : 'Žiadna ponuka neodpovedá hľadanému výrazu.';
+        zoznam.appendChild(prazdny);
+        return;
+    }
+
+    filtrovane.forEach(ponuka => {
         const div = document.createElement('div');
         div.style.borderBottom = "1px solid #333333"; // Tmavšia deliaca čiara pre dark mode
         div.style.padding = "15px 0";
-        let btnSupisHtml = ponuka.obsahujeSupis 
+        let btnSupisHtml = ponuka.obsahujeSupis
             ? `<button class="btn-success btn-small" onclick="vytvorSupisPrac(${ponuka.id})" style="flex: 1 1 100%; margin-bottom: 3px; background-color: #f97316 !important;">✏️ Otvoriť Súpis prác</button>`
             : `<button class="btn-success btn-small" onclick="vytvorSupisPrac(${ponuka.id})" style="flex: 1 1 100%; margin-bottom: 3px;">📝 Vytvoriť Súpis prác</button>`;
 
@@ -1201,6 +1256,41 @@ function vykresliArchiv() {
         zoznam.appendChild(div);
     });
 }
+
+// ==========================================
+// VYHĽADÁVANIE V ARCHÍVE
+// ==========================================
+(function initArchivSearch() {
+    const input = document.getElementById('archiv-hladaj');
+    const wrap  = document.getElementById('archiv-search-wrap');
+    const clear = document.getElementById('archiv-hladaj-clear');
+    if (!input || !wrap || !clear) return;
+
+    const refresh = () => {
+        archivHladaj = input.value;
+        wrap.classList.toggle('has-value', input.value.length > 0);
+        vykresliArchiv();
+    };
+
+    input.addEventListener('input', refresh);
+    clear.addEventListener('click', () => {
+        input.value = '';
+        archivHladaj = '';
+        wrap.classList.remove('has-value');
+        input.focus();
+        vykresliArchiv();
+    });
+    // Esc vyčistí pole
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && input.value !== '') {
+            e.preventDefault();
+            input.value = '';
+            archivHladaj = '';
+            wrap.classList.remove('has-value');
+            vykresliArchiv();
+        }
+    });
+})();
 
 function zmazZArchivu(id) {
     if(confirm('Naozaj zmazať z archívu?')) {
