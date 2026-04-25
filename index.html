@@ -420,6 +420,32 @@
         .settings-save-status.saved { color: var(--success-btn-bg-color); display: inline; }
         #tab-nastavenia.active { padding-bottom: 90px; }
 
+        /* ============== Visually hidden (skríner-friendly labely) ============== */
+        .visually-hidden {
+            position: absolute !important;
+            width: 1px; height: 1px;
+            padding: 0; margin: -1px; overflow: hidden;
+            clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+        }
+
+        /* ============== Field label (mini popisok pred inputom) ============== */
+        .field-label {
+            display: block;
+            margin: 0 0 4px 0;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted-color);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            line-height: 1.4;
+        }
+        /* V flex-row variantu — label vľavo, input vpravo. Jemnejší vzhľad. */
+        .flex-row > .field-label.inline {
+            margin: 0;
+            align-self: center;
+            white-space: nowrap;
+        }
+
         /* ============== SEKCIÁLNE NADPISY (uppercase mini-label) ============== */
         .section-label {
             margin: 0 0 12px 0;
@@ -546,23 +572,23 @@
 
         <div class="card" data-section="klient">
             <h3 class="section-label">Údaje o klientovi</h3>
-            <input type="text" id="cislo-ponuky" placeholder="Číslo ponuky (napr. CP-2026-001)">
-            <input type="text" id="meno-zakaznika" placeholder="Meno / Názov firmy">
-            <input type="text" id="ulica-zakaznika" placeholder="Ulica a číslo">
-            <input type="text" id="mesto-zakaznika" placeholder="PSČ a Mesto">
+            <input type="text" id="cislo-ponuky" placeholder="Číslo ponuky (napr. CP-2026-001)" aria-label="Číslo ponuky">
+            <input type="text" id="meno-zakaznika" placeholder="Meno / Názov firmy" aria-label="Meno alebo názov firmy">
+            <input type="text" id="ulica-zakaznika" placeholder="Ulica a číslo" aria-label="Ulica a číslo">
+            <input type="text" id="mesto-zakaznika" placeholder="PSČ a Mesto" aria-label="PSČ a mesto">
             <div class="flex-row">
-                <input type="text" id="ico-zakaznika" placeholder="IČO (nepovinné)" style="flex: 1;">
-                <input type="text" id="dic-zakaznika" placeholder="DIČ (nepovinné)" style="flex: 1;">
+                <input type="text" id="ico-zakaznika" placeholder="IČO (nepovinné)" aria-label="IČO" style="flex: 1;">
+                <input type="text" id="dic-zakaznika" placeholder="DIČ (nepovinné)" aria-label="DIČ" style="flex: 1;">
             </div>
-            <input type="text" id="icdph-zakaznika" placeholder="IČ DPH (nepovinné)">
+            <input type="text" id="icdph-zakaznika" placeholder="IČ DPH (nepovinné)" aria-label="IČ DPH">
             <div class="flex-row">
-                <input type="text" id="telefon-zakaznika" placeholder="Telefón">
-                <input type="email" id="email-zakaznika" placeholder="E-mail">
+                <input type="text" id="telefon-zakaznika" placeholder="Telefón" aria-label="Telefón">
+                <input type="email" id="email-zakaznika" placeholder="E-mail" aria-label="E-mail">
             </div>
         </div>
 
         <div id="obal-logo-znacky" data-section="klient" style="margin-bottom: 15px;">
-            <label for="ponuka-znacka" style="font-size: 14px; color: var(--text-muted-color); display: block; margin-bottom: 5px;">Logo značky na PDF (voliteľné):</label>
+            <label for="ponuka-znacka" class="field-label">Logo značky na PDF (voliteľné)</label>
             <select id="ponuka-znacka" style="width: 100%; padding: 8px; font-size: 14px; background-color: var(--input-bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px;">
                 <option value="">-- Bez loga značky --</option>
             </select>
@@ -572,16 +598,16 @@
             <h3 class="section-label">Dátumy a miesto vystavenia</h3>
             <div class="flex-row" style="margin-bottom: 10px;">
                 <div style="flex: 1;">
-                    <label for="ponuka-miesto-vystavenia">Miesto vystavenia:</label>
+                    <label for="ponuka-miesto-vystavenia" class="field-label">Miesto vystavenia</label>
                     <input type="text" id="ponuka-miesto-vystavenia" placeholder="Napr. Bratislava" style="margin-bottom: 0;">
                 </div>
                 <div style="flex: 1;">
-                    <label for="ponuka-datum-vystavenia">Dátum vystavenia:</label>
+                    <label for="ponuka-datum-vystavenia" class="field-label">Dátum vystavenia</label>
                     <input type="date" id="ponuka-datum-vystavenia" style="margin-bottom: 0;">
                 </div>
             </div>
             <div id="obal-platnost">
-                <label for="platnost-do">Platnosť ponuky do (nechaj prázdne pre 30 dní):</label>
+                <label for="platnost-do" class="field-label">Platnosť ponuky do <span class="section-label-hint">(nechaj prázdne pre 30 dní)</span></label>
                 <input type="date" id="platnost-do">
             </div>
         </div>
@@ -623,7 +649,7 @@
             <h3 class="section-label">Podmienky ponuky</h3>
             <div style="display: flex; flex-direction: column; gap: 10px;">
                 <div class="flex-row" style="margin-bottom: 0;">
-                    <label style="flex: 1; margin: 0; font-size: 13px;">Dodacie podmienky:</label>
+                    <label class="field-label inline" style="flex: 1;">Dodacie podmienky</label>
                     <input type="text" id="ponuka-dodacie" list="dodacie-zoznam" style="flex: 2; margin: 0; padding: 10px; font-size: 14px;" placeholder="Vyber alebo vpíš vlastné...">
                     <datalist id="dodacie-zoznam">
                         <option value="dohodou">
@@ -633,7 +659,7 @@
                     </datalist>
                 </div>
                 <div class="flex-row" style="margin-bottom: 0;">
-                    <label style="flex: 1; margin: 0; font-size: 13px;">Platobné podmienky:</label>
+                    <label class="field-label inline" style="flex: 1;">Platobné podmienky</label>
                     <input type="text" id="ponuka-platobne" list="platobne-zoznam" style="flex: 2; margin: 0; padding: 10px; font-size: 14px;" placeholder="Vyber alebo vpíš vlastné...">
                     <datalist id="platobne-zoznam">
                         <option value="dohodou">
@@ -643,11 +669,11 @@
                     </datalist>
                 </div>
                 <div class="flex-row" style="margin-bottom: 0;">
-                    <label style="flex: 1; margin: 0; font-size: 13px;">Záruka (Zariadenie):</label>
+                    <label class="field-label inline" style="flex: 1;">Záruka (zariadenie)</label>
                     <input type="text" id="ponuka-zaruka-zariadenie" value="36 mesiacov na dodané zariadenia" style="flex: 2; margin: 0; padding: 10px; font-size: 14px;">
                 </div>
                 <div class="flex-row" style="margin-bottom: 0;">
-                    <label style="flex: 1; margin: 0; font-size: 13px;">Záruka (Montáž):</label>
+                    <label class="field-label inline" style="flex: 1;">Záruka (montáž)</label>
                     <input type="text" id="ponuka-zaruka-montaz" value="36 mesiacov na montáž" style="flex: 2; margin: 0; padding: 10px; font-size: 14px;">
                 </div>
             </div>
@@ -658,11 +684,11 @@
                 Doplňujúce texty <span class="section-label-hint">(v PDF sa zobrazia na konci dokumentu)</span>
             </h3>
             
-            <label for="ponuka-poznamka-1" style="font-size: 13px; color: var(--text-muted-color); display: block; margin-bottom: 5px; margin-top: 15px;">Poznámka (nad technickým popisom):</label>
+            <label for="ponuka-poznamka-1" class="field-label" style="margin-top: 15px;">Poznámka (nad technickým popisom)</label>
             <textarea id="ponuka-poznamka-1" rows="2" style="width: 100%; box-sizing: border-box; font-family: inherit; font-size: 15px; margin-bottom: 5px; background-color: var(--input-bg-color); border: 1px solid var(--input-border-color); color: var(--text-color); border-radius: 6px; padding: 12px;"></textarea>
 
             <div id="obal-informacia-2">
-                <label for="ponuka-informacia-2" style="font-size: 13px; color: var(--text-muted-color); display: block; margin-bottom: 5px; margin-top: 15px;">Informácia (na konci pred podpisom):</label>
+                <label for="ponuka-informacia-2" class="field-label" style="margin-top: 15px;">Informácia (na konci pred podpisom)</label>
                 <textarea id="ponuka-informacia-2" rows="2" style="width: 100%; box-sizing: border-box; font-family: inherit; font-size: 15px; background-color: var(--input-bg-color); border: 1px solid var(--input-border-color); color: var(--text-color); border-radius: 6px; padding: 12px;"></textarea>
             </div>
         </div>
