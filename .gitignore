@@ -14,6 +14,9 @@ $RECYCLE.BIN/
 .project
 .settings/
 
+# ===== Claude Code cache =====
+.claude/
+
 # ===== Node / npm (pre prípad, že budeš neskôr pridávať build nástroje) =====
 node_modules/
 npm-debug.log*
