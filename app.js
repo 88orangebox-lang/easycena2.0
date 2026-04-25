@@ -1169,8 +1169,18 @@ document.getElementById('ulozit-archiv-btn').addEventListener('click', () => {
     alert('Úspešne uložené v archíve.');
 });
 
-// Stav vyhľadávania v archíve
+// Stav pohľadu na archív (hľadanie + filter + triedenie)
 let archivHladaj = '';
+const _archivView = JSON.parse(localStorage.getItem('easycena_archiv_view') || '{}');
+let archivFilter  = _archivView.filter  || 'vsetky';     // vsetky | bezsupisu | sosupisom
+let archivTriedit = _archivView.triedit || 'najnovsie';  // najnovsie | najstarsie | suma-desc | suma-asc | meno-asc
+
+function _ulozArchivView() {
+    localStorage.setItem('easycena_archiv_view', JSON.stringify({
+        filter: archivFilter,
+        triedit: archivTriedit
+    }));
+}
 
 // Helper: bezdiakritický lowercase pre vyhľadávanie
 function _bezDiakritiky(s) {
@@ -1189,14 +1199,37 @@ function vykresliArchiv() {
     const statBox = document.getElementById('archiv-statistiky');
     zoznam.innerHTML = '';
 
-    // 1. Filter podľa hľadania (cislo, meno, datum)
-    const hladaj = _bezDiakritiky(archivHladaj.trim());
-    const filtrovane = hladaj === '' ? archiv : archiv.filter(p => {
-        const cislo = _bezDiakritiky(p.cislo);
-        const meno  = _bezDiakritiky(p.meno);
-        const datum = _bezDiakritiky(p.datum);
-        return cislo.includes(hladaj) || meno.includes(hladaj) || datum.includes(hladaj);
+    // 1a. Filter podľa stavu (Všetky / Bez súpisu / So súpisom)
+    let filtrovane = archiv.filter(p => {
+        if (archivFilter === 'sosupisom') return !!p.obsahujeSupis;
+        if (archivFilter === 'bezsupisu') return !p.obsahujeSupis;
+        return true;
     });
+
+    // 1b. Filter podľa hľadania (cislo, meno, datum)
+    const hladaj = _bezDiakritiky(archivHladaj.trim());
+    if (hladaj !== '') {
+        filtrovane = filtrovane.filter(p => {
+            const cislo = _bezDiakritiky(p.cislo);
+            const meno  = _bezDiakritiky(p.meno);
+            const datum = _bezDiakritiky(p.datum);
+            return cislo.includes(hladaj) || meno.includes(hladaj) || datum.includes(hladaj);
+        });
+    }
+
+    // 1c. Triedenie
+    filtrovane = filtrovane.slice(); // kópia, aby sme nemenili pôvodné poradie v archiv[]
+    if (archivTriedit === 'najnovsie') {
+        filtrovane.sort((a, b) => (b.id || 0) - (a.id || 0));
+    } else if (archivTriedit === 'najstarsie') {
+        filtrovane.sort((a, b) => (a.id || 0) - (b.id || 0));
+    } else if (archivTriedit === 'suma-desc') {
+        filtrovane.sort((a, b) => _parsujSumu(b.sumaZobrazena) - _parsujSumu(a.sumaZobrazena));
+    } else if (archivTriedit === 'suma-asc') {
+        filtrovane.sort((a, b) => _parsujSumu(a.sumaZobrazena) - _parsujSumu(b.sumaZobrazena));
+    } else if (archivTriedit === 'meno-asc') {
+        filtrovane.sort((a, b) => String(a.meno || '').localeCompare(String(b.meno || ''), 'sk'));
+    }
 
     // 2. Štatistiky (počítané z filtrovaných záznamov, ale s celkovým kontextom)
     if (statBox) {
@@ -1258,21 +1291,23 @@ function vykresliArchiv() {
 }
 
 // ==========================================
-// VYHĽADÁVANIE V ARCHÍVE
+// VYHĽADÁVANIE / FILTER / TRIEDENIE V ARCHÍVE
 // ==========================================
-(function initArchivSearch() {
+(function initArchivOvladace() {
     const input = document.getElementById('archiv-hladaj');
     const wrap  = document.getElementById('archiv-search-wrap');
     const clear = document.getElementById('archiv-hladaj-clear');
-    if (!input || !wrap || !clear) return;
+    const filterBox = document.getElementById('archiv-filter');
+    const triedit   = document.getElementById('archiv-triedit');
+    if (!input || !wrap || !clear || !filterBox || !triedit) return;
 
-    const refresh = () => {
+    // --- Search ---
+    const refreshSearch = () => {
         archivHladaj = input.value;
         wrap.classList.toggle('has-value', input.value.length > 0);
         vykresliArchiv();
     };
-
-    input.addEventListener('input', refresh);
+    input.addEventListener('input', refreshSearch);
     clear.addEventListener('click', () => {
         input.value = '';
         archivHladaj = '';
@@ -1280,7 +1315,6 @@ function vykresliArchiv() {
         input.focus();
         vykresliArchiv();
     });
-    // Esc vyčistí pole
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && input.value !== '') {
             e.preventDefault();
@@ -1289,6 +1323,36 @@ function vykresliArchiv() {
             wrap.classList.remove('has-value');
             vykresliArchiv();
         }
+    });
+
+    // --- Filter pills (stav so súpisom) ---
+    const oznacAktivnyFilter = () => {
+        filterBox.querySelectorAll('.archiv-pill').forEach(btn => {
+            btn.classList.toggle('aktivny', btn.dataset.filter === archivFilter);
+        });
+    };
+    oznacAktivnyFilter();
+    filterBox.addEventListener('click', (e) => {
+        const btn = e.target.closest('.archiv-pill');
+        if (!btn) return;
+        archivFilter = btn.dataset.filter || 'vsetky';
+        oznacAktivnyFilter();
+        _ulozArchivView();
+        vykresliArchiv();
+    });
+
+    // --- Triedenie ---
+    triedit.value = archivTriedit;
+    // Ak localStorage obsahuje neznámu hodnotu (napr. po update), select.value sa nenastaví
+    // a vrátime ho na default.
+    if (triedit.value === '') {
+        triedit.value = 'najnovsie';
+        archivTriedit = 'najnovsie';
+    }
+    triedit.addEventListener('change', () => {
+        archivTriedit = triedit.value;
+        _ulozArchivView();
+        vykresliArchiv();
     });
 })();
 

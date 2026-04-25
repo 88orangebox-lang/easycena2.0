@@ -154,6 +154,31 @@
         }
         .archiv-search-wrap.has-value button#archiv-hladaj-clear { display: block; }
         .archiv-search-wrap button#archiv-hladaj-clear:hover { color: var(--text-color); }
+        .archiv-ovladace {
+            display: flex; flex-wrap: wrap; gap: 8px;
+            align-items: center; margin-bottom: 10px;
+        }
+        .archiv-filter {
+            display: inline-flex; gap: 0;
+            border: 1px solid var(--input-border-color);
+            border-radius: 6px; overflow: hidden; flex-wrap: wrap;
+        }
+        .archiv-pill {
+            background: transparent; color: var(--text-muted-color);
+            border: none; border-right: 1px solid var(--input-border-color);
+            padding: 6px 12px; cursor: pointer; font-size: 13px;
+            font-weight: 500; transition: background 0.15s, color 0.15s;
+        }
+        .archiv-pill:last-child { border-right: none; }
+        .archiv-pill:hover { background: var(--secondary-btn-bg-color); color: var(--text-color); }
+        .archiv-pill.aktivny {
+            background: var(--accent-color); color: #000;
+            font-weight: bold;
+        }
+        .archiv-triedit {
+            margin-bottom: 0; padding: 6px 8px;
+            font-size: 13px; flex: 0 1 auto; min-width: 0;
+        }
         .archiv-statistiky {
             display: flex; flex-wrap: wrap; gap: 6px 16px;
             font-size: 13px; color: var(--text-muted-color);
@@ -596,6 +621,20 @@
                 <div class="archiv-search-wrap" id="archiv-search-wrap">
                     <input type="text" id="archiv-hladaj" placeholder="🔍 Hľadať podľa čísla, mena alebo dátumu…" autocomplete="off">
                     <button type="button" id="archiv-hladaj-clear" title="Vyčistiť hľadanie" aria-label="Vyčistiť hľadanie">✕</button>
+                </div>
+                <div class="archiv-ovladace">
+                    <div class="archiv-filter" id="archiv-filter" role="tablist" aria-label="Filter stavu">
+                        <button type="button" class="archiv-pill aktivny" data-filter="vsetky">Všetky</button>
+                        <button type="button" class="archiv-pill" data-filter="bezsupisu">📝 Bez súpisu</button>
+                        <button type="button" class="archiv-pill" data-filter="sosupisom">✓ So súpisom</button>
+                    </div>
+                    <select id="archiv-triedit" class="archiv-triedit" aria-label="Triedenie">
+                        <option value="najnovsie">↓ Najnovšie</option>
+                        <option value="najstarsie">↑ Najstaršie</option>
+                        <option value="suma-desc">💰 Suma (najvyššia)</option>
+                        <option value="suma-asc">💰 Suma (najnižšia)</option>
+                        <option value="meno-asc">🔤 Meno (A → Z)</option>
+                    </select>
                 </div>
                 <div class="archiv-statistiky" id="archiv-statistiky"></div>
             </div>
