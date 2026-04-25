@@ -591,6 +591,17 @@
         @media (min-width: 768px) {
             .settings-accordion { max-width: 720px; margin-left: auto; margin-right: auto; }
             .acc-body .flex-row { gap: 12px; }
+            /* Sticky lišty na desktope nemajú zaberať celú šírku — zúžia sa
+               a centrujú, aby tlačidlá nepôsobili neprimerane veľké. */
+            .ponuka-action-bar,
+            .settings-sticky-save {
+                left: 50%;
+                right: auto;
+                transform: translateX(-50%);
+                max-width: 720px;
+                width: calc(100% - 30px);
+                border-radius: 12px 12px 0 0;
+            }
         }
     </style>
 </head>
