@@ -1418,13 +1418,32 @@ function duplikujZArchivu(id) {
 
     // Vytvoríme hlbokú kópiu, aby sme omylom neprepísali originál v archíve
     let novaPonuka = JSON.parse(JSON.stringify(staraPonuka));
-    
+
     // 1. Zmažeme staré identifikátory a dátumy, aby to bola "nová" ponuka
     delete novaPonuka.id;
     delete novaPonuka.datum;
     delete novaPonuka.sumaZobrazena;
     novaPonuka.datumVystavenia = new Date().toISOString().split('T')[0];
     novaPonuka.platnostDo = ''; // Nech sa vypočíta štandardných 30 dní
+
+    // 1b. DÔLEŽITÉ: Ak sa duplikuje ponuka, ktorá bola uložená ako Súpis prác,
+    // nesmieme zdediť súpisové flagy — má vzniknúť čistá NOVÁ cenová ponuka.
+    novaPonuka.rezimSupisPrac = false;
+    delete novaPonuka.obsahujeSupis;
+    if (Array.isArray(novaPonuka.polozky)) {
+        novaPonuka.polozky.forEach(p => {
+            if (p.typRiadku === 'balik' && Array.isArray(p.polozky)) {
+                p.polozky.forEach(bp => { delete bp.zamknutaCena; });
+            } else {
+                delete p.zamknutaCena;
+            }
+        });
+    }
+    if (Array.isArray(novaPonuka.zlavy)) {
+        novaPonuka.zlavy.forEach(z => { delete z.zamknuta; });
+    }
+    // Pre istotu vypneme režim aj na úrovni runtime, kým sa volá obnovRozpracovanuPonuku()
+    window.jeRezimSupis = false;
     
     // 2. Inteligentná kontrola cien z Katalógu
     let zmenenePolozky = [];
