@@ -1009,11 +1009,54 @@ function dokonciUlozenieKatalogu() {
     alert('Uložené do katalógu.');
 }
 
+// Stav pohľadu na katalóg
+let katalogHladaj = '';
+
 function vykresliKatalog() {
     const zoznam = document.getElementById('zoznam-v-katalogu');
+    const statBox = document.getElementById('katalog-statistiky');
     zoznam.innerHTML = '';
-    const zoradenyKatalog = [...katalog].sort((a, b) => a.nazov.localeCompare(b.nazov, 'sk'));
-    
+
+    // 1. Triedenie (zatiaľ abecedne, ďalšie možnosti pridáme v bode 2)
+    let zoradenyKatalog = [...katalog].sort((a, b) => a.nazov.localeCompare(b.nazov, 'sk'));
+
+    // 2. Filter podľa hľadania (názov položky/balíčka, bez diakritiky)
+    const hladaj = _bezDiakritiky(katalogHladaj.trim());
+    if (hladaj !== '') {
+        zoradenyKatalog = zoradenyKatalog.filter(p => _bezDiakritiky(p.nazov).includes(hladaj));
+    }
+
+    // 3. Štatistiky (počítané z celého katalógu, aby boli stabilné)
+    if (statBox) {
+        const pocetPoloziek = katalog.filter(p => p.typ !== 'balik').length;
+        const pocetBalickov = katalog.filter(p => p.typ === 'balik').length;
+        const pocetNaDoplnenie = katalog.filter(p => p.vyzadujeKontrolu).length;
+        const zobrazene = zoradenyKatalog.length;
+        const celkom = katalog.length;
+
+        const ozn = (hladaj && zobrazene !== celkom)
+            ? `<span class="stat-item">📂 Zobrazené: <span class="stat-cislo">${zobrazene}</span> z ${celkom}</span>`
+            : `<span class="stat-item">📦 Položiek: <span class="stat-cislo">${pocetPoloziek}</span></span>
+               <span class="stat-item">📋 Balíčkov: <span class="stat-cislo">${pocetBalickov}</span></span>`;
+
+        const varovanie = pocetNaDoplnenie > 0
+            ? `<span class="stat-item">⚠️ Na doplnenie: <span class="stat-warn">${pocetNaDoplnenie}</span></span>`
+            : '';
+
+        statBox.innerHTML = ozn + varovanie;
+    }
+
+    // 4. Prázdny stav
+    if (zoradenyKatalog.length === 0) {
+        const prazdny = document.createElement('div');
+        prazdny.className = 'katalog-prazdny';
+        prazdny.innerText = katalog.length === 0
+            ? 'Katalóg je zatiaľ prázdny. Pridaj prvú položku alebo balíček vyššie.'
+            : 'Žiadna položka neodpovedá hľadanému výrazu.';
+        zoznam.appendChild(prazdny);
+        return;
+    }
+
     zoradenyKatalog.forEach((polozka) => {
         const povodnyIndex = katalog.indexOf(polozka);
         const div = document.createElement('div');
@@ -1056,6 +1099,40 @@ function vykresliKatalog() {
         zoznam.appendChild(div);
     });
 }
+
+// ==========================================
+// VYHĽADÁVANIE V KATALÓGU
+// ==========================================
+(function initKatalogOvladace() {
+    const input = document.getElementById('katalog-hladaj');
+    const wrap  = document.getElementById('katalog-search-wrap');
+    const clear = document.getElementById('katalog-hladaj-clear');
+    if (!input || !wrap || !clear) return;
+
+    const refresh = () => {
+        katalogHladaj = input.value;
+        wrap.classList.toggle('has-value', input.value.length > 0);
+        vykresliKatalog();
+    };
+
+    input.addEventListener('input', refresh);
+    clear.addEventListener('click', () => {
+        input.value = '';
+        katalogHladaj = '';
+        wrap.classList.remove('has-value');
+        input.focus();
+        vykresliKatalog();
+    });
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && input.value !== '') {
+            e.preventDefault();
+            input.value = '';
+            katalogHladaj = '';
+            wrap.classList.remove('has-value');
+            vykresliKatalog();
+        }
+    });
+})();
 
 function upravKatalog(index) {
     const p = katalog[index];

@@ -130,30 +130,33 @@
         .polozka-cena-editable { background-color: var(--input-bg-color) !important; color: var(--text-color) !important; border-color: var(--accent-color) !important; }
         .polozka-cena-readonly { background-color: var(--card-bg-color) !important; color: var(--text-muted-color) !important; border-color: var(--input-border-color) !important; }
 
-        /* ===== Archív toolbar (search + štatistiky) ===== */
-        .archiv-toolbar {
+        /* ===== Toolbar pre Archív aj Katalóg (search + štatistiky) ===== */
+        .archiv-toolbar, .katalog-toolbar {
             position: sticky; top: 0; z-index: 5;
             background: var(--card-bg-color);
             padding: 8px 0 12px 0;
             margin: -8px 0 12px 0;
             border-bottom: 1px solid var(--border-color);
         }
-        .archiv-search-wrap { position: relative; margin-bottom: 10px; }
-        .archiv-search-wrap input {
+        .archiv-search-wrap, .katalog-search-wrap { position: relative; margin-bottom: 10px; }
+        .archiv-search-wrap input, .katalog-search-wrap input {
             width: 100%;
             padding: 10px 36px 10px 12px;
             box-sizing: border-box;
             margin-bottom: 0;
             font-size: 15px;
         }
-        .archiv-search-wrap button#archiv-hladaj-clear {
+        .archiv-search-wrap button#archiv-hladaj-clear,
+        .katalog-search-wrap button#katalog-hladaj-clear {
             position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
             background: transparent; border: none; color: var(--text-muted-color);
             font-size: 16px; cursor: pointer; padding: 4px 10px;
             display: none; line-height: 1;
         }
-        .archiv-search-wrap.has-value button#archiv-hladaj-clear { display: block; }
-        .archiv-search-wrap button#archiv-hladaj-clear:hover { color: var(--text-color); }
+        .archiv-search-wrap.has-value button#archiv-hladaj-clear,
+        .katalog-search-wrap.has-value button#katalog-hladaj-clear { display: block; }
+        .archiv-search-wrap button#archiv-hladaj-clear:hover,
+        .katalog-search-wrap button#katalog-hladaj-clear:hover { color: var(--text-color); }
         .archiv-ovladace {
             display: flex; flex-wrap: wrap; gap: 8px;
             align-items: center; margin-bottom: 10px;
@@ -179,14 +182,19 @@
             margin-bottom: 0; padding: 6px 8px;
             font-size: 13px; flex: 0 1 auto; min-width: 0;
         }
-        .archiv-statistiky {
+        .archiv-statistiky, .katalog-statistiky {
             display: flex; flex-wrap: wrap; gap: 6px 16px;
             font-size: 13px; color: var(--text-muted-color);
         }
-        .archiv-statistiky .stat-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-        .archiv-statistiky .stat-cislo { color: var(--text-color); font-weight: bold; }
-        .archiv-statistiky .stat-suma { color: var(--accent-color); font-weight: bold; }
-        .archiv-prazdny { padding: 30px 10px; text-align: center; color: var(--text-muted-color); font-size: 14px; }
+        .archiv-statistiky .stat-item,
+        .katalog-statistiky .stat-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+        .archiv-statistiky .stat-cislo,
+        .katalog-statistiky .stat-cislo { color: var(--text-color); font-weight: bold; }
+        .archiv-statistiky .stat-suma,
+        .katalog-statistiky .stat-suma { color: var(--accent-color); font-weight: bold; }
+        .archiv-statistiky .stat-warn,
+        .katalog-statistiky .stat-warn { color: var(--danger-btn-bg-color); font-weight: bold; }
+        .archiv-prazdny, .katalog-prazdny { padding: 30px 10px; text-align: center; color: var(--text-muted-color); font-size: 14px; }
 
         /* ===== Karta jednej ponuky v Archíve ===== */
         .archiv-karta {
@@ -675,6 +683,13 @@
         </div>
         <div class="card">
             <h3>Uložené v katalógu</h3>
+            <div class="katalog-toolbar">
+                <div class="katalog-search-wrap" id="katalog-search-wrap">
+                    <input type="text" id="katalog-hladaj" placeholder="🔍 Hľadať položku alebo balíček…" autocomplete="off">
+                    <button type="button" id="katalog-hladaj-clear" title="Vyčistiť hľadanie" aria-label="Vyčistiť hľadanie">✕</button>
+                </div>
+                <div class="katalog-statistiky" id="katalog-statistiky"></div>
+            </div>
             <div id="zoznam-v-katalogu"></div>
         </div>
     </div>
