@@ -438,6 +438,37 @@
 
         /* Sticky save lišta — viditeľná iba keď je tab-nastavenia aktívny (display:none rodič skryje aj fixed child) */
         .settings-sticky-save { position: fixed; bottom: 64px; left: 0; right: 0; background: var(--card-bg-color); border-top: 1px solid var(--border-color); padding: 10px 15px calc(10px + env(safe-area-inset-bottom)); display: flex; gap: 10px; align-items: center; z-index: 999; box-shadow: 0 -4px 12px rgba(0,0,0,0.2); }
+        /* Sticky action bar pre Ponuku — viditeľný len keď je tab-ponuka aktívny */
+        .ponuka-action-bar {
+            position: fixed; bottom: 64px; left: 0; right: 0;
+            background: var(--card-bg-color);
+            border-top: 1px solid var(--border-color);
+            padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+            display: flex; gap: 8px; align-items: stretch;
+            z-index: 999;
+            box-shadow: 0 -4px 12px rgba(0,0,0,0.25);
+        }
+        .ponuka-action-bar button {
+            flex: 1; margin: 0;
+            padding: 13px 8px;
+            font-size: 14px; font-weight: 600;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+        }
+        .ponuka-action-bar .btn-ulozit { flex: 1.4; }
+        /* Aby spodné tlačidlá v Ponuke neboli prekryté sticky barom */
+        #tab-ponuka.active { padding-bottom: 140px; }
+        /* Info-hint v sekcii Súhrn keď tlačidlá sú v sticky bare */
+        .suhrn-hint {
+            text-align: center;
+            color: var(--text-muted-color);
+            font-size: 13px;
+            padding: 16px 12px;
+            border: 1px dashed var(--border-color);
+            border-radius: 8px;
+            line-height: 1.5;
+        }
+        .suhrn-hint strong { color: var(--accent-color) !important; }
         .settings-sticky-save button { flex: 1; margin: 0; padding: 12px; font-size: 15px; }
         .settings-save-status { font-size: 12px; color: var(--text-muted-color); white-space: nowrap; display: none; }
         .settings-save-status.dirty { color: var(--accent-color); display: inline; }
@@ -717,12 +748,14 @@
             </div>
         </div>
 
-        <div data-section="suhrn" style="display: flex; gap: 10px; flex-direction: column;">
-            <button id="ulozit-archiv-btn" class="btn-success">💾 Uložiť do Archívu</button>
-            <div style="display: flex; gap: 10px;">
-                <button id="btn-stiahnut-pdf" class="btn-secondary" style="flex: 1;">📄 Stiahnuť PDF</button>
-                <button id="btn-zdielat-pdf" class="btn-primary" style="flex: 1;">📤 Zdieľať PDF</button>
-            </div>
+        <div data-section="suhrn" class="suhrn-hint">
+            ✓ Skontroluj všetky údaje vyššie a potom použi tlačidlá v <strong>spodnej lište</strong> na uloženie do archívu alebo stiahnutie PDF.
+        </div>
+
+        <div class="ponuka-action-bar" role="toolbar" aria-label="Akcie ponuky">
+            <button id="ulozit-archiv-btn" class="btn-success btn-ulozit">💾 Uložiť do archívu</button>
+            <button id="btn-stiahnut-pdf" class="btn-secondary">📄 PDF</button>
+            <button id="btn-zdielat-pdf" class="btn-primary">📤 Zdieľať</button>
         </div>
     </div>
 
