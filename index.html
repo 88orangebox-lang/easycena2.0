@@ -150,6 +150,30 @@
             font-size: 0.85em;
             vertical-align: middle;
         }
+        .btn-hero-cta {
+            display: block; width: 100%;
+            padding: 16px 18px;
+            margin: 0 0 15px 0;
+            background: var(--accent-color);
+            color: #000;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px; font-weight: 700;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(250, 204, 21, 0.25);
+            transition: transform 0.1s, box-shadow 0.15s, filter 0.15s;
+        }
+        .btn-hero-cta:hover { filter: brightness(1.05); box-shadow: 0 3px 12px rgba(250, 204, 21, 0.35); }
+        .btn-hero-cta:active { transform: translateY(1px); }
+        body[data-theme="light"] .btn-hero-cta {
+            background: var(--accent-color);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(0, 86, 179, 0.25);
+        }
+        body[data-theme="light"] .btn-hero-cta:hover {
+            box-shadow: 0 3px 12px rgba(0, 86, 179, 0.35);
+        }
 
         /* ===== Toolbar pre Archív aj Katalóg (search + štatistiky) ===== */
         .archiv-toolbar, .katalog-toolbar {
@@ -485,6 +509,12 @@
 <body>
 
     <div id="tab-ponuka" class="tab-content active">
+        <div class="ponuka-hero">
+            <h1 id="ponuka-titulok" class="ponuka-titulok">Úprava ponuky <span class="hero-emoji">🖊️</span></h1>
+        </div>
+
+        <button id="nova-ponuka-btn" class="btn-hero-cta">+ NOVÁ CENOVÁ PONUKA</button>
+
         <div id="ponuka-progress" class="ponuka-progress" role="navigation" aria-label="Kroky ponuky">
             <div class="pp-step active" data-step="klient" role="button" tabindex="0">
                 <span class="pp-num">1</span>
@@ -505,11 +535,6 @@
                 <span class="pp-num">4</span>
                 <span class="pp-label">Súhrn</span>
             </div>
-        </div>
-
-        <div class="ponuka-hero">
-            <h1 id="ponuka-titulok" class="ponuka-titulok">Úprava ponuky <span class="hero-emoji">🖊️</span></h1>
-            <button id="nova-ponuka-btn" class="btn-danger btn-small">Nová cenová ponuka</button>
         </div>
 
         <div class="card" data-section="klient">
