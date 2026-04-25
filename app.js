@@ -94,10 +94,83 @@ function ulozRozpracovanuPonuku() {
         zlavy: zlavy
     };
 
-    
-    
+
+
     localStorage.setItem('easycena_rozpracovana', JSON.stringify(data));
+    markSaved();
 }
+
+// =====================================================
+// AUTOSAVE INDIKÁTOR ("💾 Uložené" / "💾 Pred 5s")
+// =====================================================
+let _lastSavedAt = Date.now();
+let _flashTimer = null;
+
+function markSaved() {
+    _lastSavedAt = Date.now();
+    aktualizujAutosaveStatus(true);
+}
+
+function aktualizujAutosaveStatus(flash = false) {
+    const el = document.getElementById('autosave-status');
+    if (!el) return;
+    const diff = Math.round((Date.now() - _lastSavedAt) / 1000);
+    let text;
+    if (diff < 5) text = '💾 Uložené';
+    else if (diff < 60) text = `💾 Pred ${diff}s`;
+    else if (diff < 3600) text = `💾 Pred ${Math.round(diff / 60)}m`;
+    else text = `💾 Pred ${Math.round(diff / 3600)}h`;
+    el.textContent = text;
+
+    if (flash) {
+        el.classList.add('flash');
+        clearTimeout(_flashTimer);
+        _flashTimer = setTimeout(() => el.classList.remove('flash'), 600);
+    }
+}
+// Tikni text raz za 10 sekúnd, aby sa "Pred 30s" → "Pred 40s" sám aktualizoval
+setInterval(() => aktualizujAutosaveStatus(false), 10000);
+
+// =====================================================
+// QUICK TOGGLE TÉMY (☀️ / 🌙) v hero rohu
+// =====================================================
+function aktualizujThemeIkonu() {
+    const btn = document.getElementById('theme-quick-toggle');
+    if (!btn) return;
+    const isLight = document.body.getAttribute('data-theme') === 'light';
+    btn.textContent = isLight ? '☀️' : '🌙';
+    btn.title = isLight ? 'Prepnúť na tmavý režim' : 'Prepnúť na svetlý režim';
+}
+
+(function initThemeQuickToggle() {
+    const btn = document.getElementById('theme-quick-toggle');
+    if (!btn) return;
+
+    // Počiatočná ikona podľa aktuálneho stavu
+    aktualizujThemeIkonu();
+
+    btn.addEventListener('click', () => {
+        const isLight = document.body.getAttribute('data-theme') === 'light';
+        const newIsLight = !isLight;
+
+        // Synchronizujeme aj s checkboxom v Nastaveniach
+        const settingsToggle = document.getElementById('theme-toggle');
+        if (settingsToggle) {
+            settingsToggle.checked = newIsLight;
+            settingsToggle.dispatchEvent(new Event('change'));
+        } else {
+            // Fallback ak by tam toggle nebol
+            if (newIsLight) {
+                document.body.setAttribute('data-theme', 'light');
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.body.removeAttribute('data-theme');
+                localStorage.removeItem('theme');
+            }
+        }
+        aktualizujThemeIkonu();
+    });
+})();
 
 function obnovRozpracovanuPonuku() {
     const data = JSON.parse(localStorage.getItem('easycena_rozpracovana'));
@@ -2601,6 +2674,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.setAttribute('data-theme', 'light');
         themeToggle.checked = true;
     }
+    // Sync ikony quick toggle podľa skutočného stavu (po načítaní DOM)
+    if (typeof aktualizujThemeIkonu === 'function') aktualizujThemeIkonu();
 
     themeToggle.addEventListener('change', function() {
         if (this.checked) {
@@ -2610,6 +2685,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.removeAttribute('data-theme');
             localStorage.removeItem('theme');
         }
+        // Pri zmene v Nastaveniach tiež aktualizuj ikonu hero quick toggle
+        if (typeof aktualizujThemeIkonu === 'function') aktualizujThemeIkonu();
     });
 });
 
