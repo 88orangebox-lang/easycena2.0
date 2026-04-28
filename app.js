@@ -2964,8 +2964,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Pripojíme handlere na tlačidlá (existujú aj pred SDK init)
     const loginBtn = document.getElementById('drive-login-btn');
     const logoutBtn = document.getElementById('drive-logout-btn');
+    const backupBtn = document.getElementById('drive-backup-btn');
     if (loginBtn) loginBtn.addEventListener('click', driveLogin);
     if (logoutBtn) logoutBtn.addEventListener('click', driveLogout);
+    if (backupBtn) backupBtn.addEventListener('click', driveZalohuj);
 
     // Polling kým sa Google SDK načíta
     function tryInitGoogleSdk() {
@@ -3071,11 +3073,189 @@ function aktualizujDriveUI() {
                 ? '✅ Prihlásený · ' + driveUserEmail
                 : '✅ Prihlásený do Google Drive';
         }
+        aktualizujDriveZalohaStatus();
     } else {
         notLoggedIn.style.display = 'block';
         loggedIn.style.display = 'none';
         if (accSub) accSub.textContent = 'Prihlás sa pre automatickú zálohu dát';
     }
+}
+
+// =====================================================
+// CLOUD ZÁLOHA — UPLOAD JSON DO DRIVE PRIEČINKA
+// =====================================================
+const DRIVE_FOLDER_NAME = 'EasyCena_zalohy';
+const DRIVE_API_BASE    = 'https://www.googleapis.com/drive/v3';
+const DRIVE_UPLOAD_BASE = 'https://www.googleapis.com/upload/drive/v3';
+
+// Hlavný handler tlačidla "Zálohovať teraz"
+async function driveZalohuj() {
+    if (!driveAccessToken) {
+        alert('Nie si prihlásený do Google Drive.');
+        return;
+    }
+    const btn = document.getElementById('drive-backup-btn');
+    const statusEl = document.getElementById('drive-backup-status');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Zálohujem…'; }
+    if (statusEl) statusEl.textContent = 'Prebieha upload do Google Drive…';
+
+    try {
+        // 1. Nájdi alebo vytvor priečinok EasyCena_zalohy
+        const folderId = await _driveZistiPriecinokId();
+
+        // 2. Priprav JSON dáta z localStorage (existujúca funkcia)
+        const dataJson = vytvorDataZalohy();
+
+        // 3. Vytvor názov súboru s timestampom: easycena_zaloha_2026-04-28_20-42.json
+        const ts = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const filename = `easycena_zaloha_${ts.getFullYear()}-${pad(ts.getMonth() + 1)}-${pad(ts.getDate())}_${pad(ts.getHours())}-${pad(ts.getMinutes())}.json`;
+
+        // 4. Upload
+        await _driveUploadJsonSubor(folderId, filename, dataJson);
+
+        // 5. Ulož timestamp poslednej zálohy
+        const teraz = Date.now();
+        localStorage.setItem('easycena_drive_last_backup', String(teraz));
+
+        if (btn) { btn.disabled = false; btn.textContent = '📤 Zálohovať teraz'; }
+        aktualizujDriveZalohaStatus();
+        if (statusEl) statusEl.textContent = '✅ Zálohované práve teraz';
+    } catch (err) {
+        console.error('Drive zaloha failed:', err);
+        if (btn) { btn.disabled = false; btn.textContent = '📤 Zálohovať teraz'; }
+        if (statusEl) statusEl.textContent = '❌ Chyba: ' + (err.message || 'záloha zlyhala');
+        // Pri 401 (token expiroval) ponúkneme znovuprihlásenie
+        if (err && err.status === 401) {
+            if (confirm('Prihlásenie do Google Drive vypršalo. Chceš sa znova prihlásiť?')) {
+                driveLogin();
+            }
+        }
+    }
+}
+
+// Aktualizuje status text pod tlačidlom "Zálohovať teraz" — "Posledná záloha: pred X min"
+function aktualizujDriveZalohaStatus() {
+    const statusEl = document.getElementById('drive-backup-status');
+    if (!statusEl) return;
+    const lastRaw = localStorage.getItem('easycena_drive_last_backup');
+    if (!lastRaw) {
+        statusEl.textContent = 'Posledná záloha: nikdy';
+        return;
+    }
+    const last = parseInt(lastRaw, 10);
+    if (isNaN(last)) {
+        statusEl.textContent = 'Posledná záloha: neznáma';
+        return;
+    }
+    const diff = Math.round((Date.now() - last) / 1000);
+    let text;
+    if (diff < 60)        text = `Posledná záloha: práve teraz`;
+    else if (diff < 3600) text = `Posledná záloha: pred ${Math.round(diff / 60)} min`;
+    else if (diff < 86400) text = `Posledná záloha: pred ${Math.round(diff / 3600)} h`;
+    else {
+        const dt = new Date(last);
+        const pad = (n) => String(n).padStart(2, '0');
+        text = `Posledná záloha: ${pad(dt.getDate())}.${pad(dt.getMonth() + 1)}.${dt.getFullYear()} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+    }
+    statusEl.textContent = text;
+}
+
+// Nájde priečinok "EasyCena_zalohy" alebo ho vytvorí. Vráti jeho ID.
+async function _driveZistiPriecinokId() {
+    // Najprv skús cached ID z localStorage (rýchlejšie)
+    const cached = localStorage.getItem('easycena_drive_folder_id');
+    if (cached) {
+        // Overíme, že priečinok stále existuje (user ho mohol zmazať)
+        try {
+            const verResp = await fetch(`${DRIVE_API_BASE}/files/${cached}?fields=id,trashed`, {
+                headers: { Authorization: 'Bearer ' + driveAccessToken }
+            });
+            if (verResp.ok) {
+                const data = await verResp.json();
+                if (!data.trashed) return cached;
+            }
+        } catch (e) { /* fall through */ }
+        // Ak overenie zlyhalo, zmažeme cache a hľadáme znova
+        localStorage.removeItem('easycena_drive_folder_id');
+    }
+
+    // 1. Hľadanie priečinka cez search query
+    const q = `name='${DRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    const searchUrl = `${DRIVE_API_BASE}/files?q=${encodeURIComponent(q)}&fields=files(id,name)&spaces=drive`;
+    const searchResp = await fetch(searchUrl, {
+        headers: { Authorization: 'Bearer ' + driveAccessToken }
+    });
+    if (!searchResp.ok) {
+        const err = new Error(`Drive search failed (${searchResp.status})`);
+        err.status = searchResp.status;
+        throw err;
+    }
+    const searchData = await searchResp.json();
+    if (searchData.files && searchData.files.length > 0) {
+        const folderId = searchData.files[0].id;
+        localStorage.setItem('easycena_drive_folder_id', folderId);
+        return folderId;
+    }
+
+    // 2. Priečinok neexistuje — vytvor ho
+    const createResp = await fetch(`${DRIVE_API_BASE}/files`, {
+        method: 'POST',
+        headers: {
+            Authorization: 'Bearer ' + driveAccessToken,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            name: DRIVE_FOLDER_NAME,
+            mimeType: 'application/vnd.google-apps.folder'
+        })
+    });
+    if (!createResp.ok) {
+        const err = new Error(`Drive folder create failed (${createResp.status})`);
+        err.status = createResp.status;
+        throw err;
+    }
+    const created = await createResp.json();
+    localStorage.setItem('easycena_drive_folder_id', created.id);
+    return created.id;
+}
+
+// Multipart upload JSON súboru do daného priečinka
+async function _driveUploadJsonSubor(folderId, filename, dataJson) {
+    const boundary = '-------easycena' + Math.random().toString(36).slice(2);
+    const delimiter = `\r\n--${boundary}\r\n`;
+    const closeDelim = `\r\n--${boundary}--`;
+
+    const metadata = {
+        name: filename,
+        parents: [folderId],
+        mimeType: 'application/json'
+    };
+
+    const body =
+        delimiter +
+        'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+        JSON.stringify(metadata) +
+        delimiter +
+        'Content-Type: application/json\r\n\r\n' +
+        dataJson +
+        closeDelim;
+
+    const resp = await fetch(`${DRIVE_UPLOAD_BASE}/files?uploadType=multipart&fields=id,name`, {
+        method: 'POST',
+        headers: {
+            Authorization: 'Bearer ' + driveAccessToken,
+            'Content-Type': `multipart/related; boundary=${boundary}`
+        },
+        body: body
+    });
+    if (!resp.ok) {
+        const txt = await resp.text().catch(() => '');
+        const err = new Error(`Drive upload failed (${resp.status}): ${txt.slice(0, 200)}`);
+        err.status = resp.status;
+        throw err;
+    }
+    return await resp.json();
 }
 
 // Vykreslenie pri štarte aplikácie
