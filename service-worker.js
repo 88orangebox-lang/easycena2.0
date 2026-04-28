@@ -1,4 +1,4 @@
-const CACHE_NAME = 'easycena-pro-v3';
+const CACHE_NAME = 'easycena-pro-v4';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -15,6 +15,9 @@ const ASSETS_TO_CACHE = [
 
 // Inštalácia aplikácie do pamäte zariadenia
 self.addEventListener('install', event => {
+    // skipWaiting() zaručí, že nový SW okamžite prevezme kontrolu —
+    // bez tohto by nová verzia čakala kým user zatvorí všetky taby s appkou.
+    self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
             return cache.addAll(ASSETS_TO_CACHE);
@@ -33,7 +36,8 @@ self.addEventListener('activate', event => {
                     }
                 })
             );
-        })
+        }).then(() => self.clients.claim())
+        // clients.claim() zaručí, že nový SW okamžite obsluhuje aj otvorené taby.
     );
 });
 

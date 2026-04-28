@@ -2945,7 +2945,10 @@ window.zmazatZnacku = function(id) {
 // CLOUD ZÁLOHA — GOOGLE DRIVE INTEGRÁCIA
 // =====================================================
 const GOOGLE_CLIENT_ID = '126578330770-s4tv3cr1hmdlb2g3htv182uvmnkloo0k.apps.googleusercontent.com';
-const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+// Scope: drive.file = prístup len k súborom ktoré appka sama vytvorí
+//        email      = email adresa pre zobrazenie "Prihlásený ako: x@y.com"
+//        profile    = (voliteľné) meno, avatar — momentálne nepoužité
+const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file email profile';
 
 let driveTokenClient = null;
 let driveAccessToken = null;
