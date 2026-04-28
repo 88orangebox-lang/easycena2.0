@@ -2941,5 +2941,139 @@ window.zmazatZnacku = function(id) {
     }
 };
 
+// =====================================================
+// CLOUD ZÁLOHA — GOOGLE DRIVE INTEGRÁCIA
+// =====================================================
+const GOOGLE_CLIENT_ID = '126578330770-s4tv3cr1hmdlb2g3htv182uvmnkloo0k.apps.googleusercontent.com';
+const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+
+let driveTokenClient = null;
+let driveAccessToken = null;
+let driveUserEmail = null;
+
+// Spustí sa po načítaní DOM. Google SDK (gsi/client) sa loaduje async,
+// preto čakáme kým bude `google.accounts.oauth2` dostupné.
+document.addEventListener('DOMContentLoaded', () => {
+    // Pred SDK init vieme načítať uložený token a UI nastaviť
+    nacitajUlozenyDriveToken();
+    aktualizujDriveUI();
+
+    // Pripojíme handlere na tlačidlá (existujú aj pred SDK init)
+    const loginBtn = document.getElementById('drive-login-btn');
+    const logoutBtn = document.getElementById('drive-logout-btn');
+    if (loginBtn) loginBtn.addEventListener('click', driveLogin);
+    if (logoutBtn) logoutBtn.addEventListener('click', driveLogout);
+
+    // Polling kým sa Google SDK načíta
+    function tryInitGoogleSdk() {
+        if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+            setTimeout(tryInitGoogleSdk, 200);
+            return;
+        }
+        driveTokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: GOOGLE_CLIENT_ID,
+            scope: GOOGLE_DRIVE_SCOPE,
+            callback: handleDriveAuthResponse
+        });
+    }
+    tryInitGoogleSdk();
+});
+
+// Spracovanie odpovede z Google OAuth popup-u
+function handleDriveAuthResponse(response) {
+    if (response.error) {
+        console.error('Drive auth error:', response);
+        alert('Prihlásenie do Google Drive zlyhalo:\n' + (response.error_description || response.error));
+        return;
+    }
+    driveAccessToken = response.access_token;
+    const expiresAt = Date.now() + ((response.expires_in || 3600) * 1000);
+    localStorage.setItem('easycena_drive_token', JSON.stringify({
+        token: driveAccessToken,
+        expiresAt: expiresAt
+    }));
+    // Načítame email cez userinfo endpoint
+    fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: 'Bearer ' + driveAccessToken }
+    })
+    .then(r => r.json())
+    .then(info => {
+        driveUserEmail = info.email || null;
+        if (driveUserEmail) {
+            localStorage.setItem('easycena_drive_email', driveUserEmail);
+        }
+        aktualizujDriveUI();
+    })
+    .catch(err => {
+        console.warn('Drive userinfo fetch failed:', err);
+        aktualizujDriveUI();
+    });
+}
+
+// Tlačidlo "Prihlásiť sa do Google Drive"
+function driveLogin() {
+    if (!driveTokenClient) {
+        alert('Google SDK sa ešte nenačítalo. Skús znovu o pár sekúnd.');
+        return;
+    }
+    // prompt:'consent' zaručí explicitný consent screen pri prvom prihlásení;
+    // pri ďalších prihláseniach Google ho preskočí, ak povolenie ešte platí.
+    driveTokenClient.requestAccessToken({ prompt: '' });
+}
+
+// Tlačidlo "Odhlásiť sa"
+function driveLogout() {
+    if (!confirm('Naozaj sa odhlásiť z Google Drive? Cloud zálohy budú deaktivované, kým sa znova neprihlásiš.')) return;
+    if (driveAccessToken && typeof google !== 'undefined' && google.accounts && google.accounts.oauth2) {
+        google.accounts.oauth2.revoke(driveAccessToken, () => { /* tichý revoke */ });
+    }
+    driveAccessToken = null;
+    driveUserEmail = null;
+    localStorage.removeItem('easycena_drive_token');
+    localStorage.removeItem('easycena_drive_email');
+    aktualizujDriveUI();
+}
+
+// Načíta uložený token z localStorage (ak je platný)
+function nacitajUlozenyDriveToken() {
+    try {
+        const stored = JSON.parse(localStorage.getItem('easycena_drive_token') || 'null');
+        if (stored && stored.expiresAt > Date.now()) {
+            driveAccessToken = stored.token;
+            driveUserEmail = localStorage.getItem('easycena_drive_email') || null;
+        } else if (stored) {
+            // Token expiroval — vyčistíme
+            localStorage.removeItem('easycena_drive_token');
+            localStorage.removeItem('easycena_drive_email');
+        }
+    } catch (e) {
+        console.warn('Drive token load failed:', e);
+    }
+}
+
+// Aktualizuje UI v Nastaveniach podľa aktuálneho stavu prihlásenia
+function aktualizujDriveUI() {
+    const notLoggedIn = document.getElementById('drive-not-logged-in');
+    const loggedIn   = document.getElementById('drive-logged-in');
+    const emailSpan  = document.getElementById('drive-user-email');
+    const accSub     = document.getElementById('drive-acc-sub');
+    if (!notLoggedIn || !loggedIn) return;
+
+    if (driveAccessToken) {
+        notLoggedIn.style.display = 'none';
+        loggedIn.style.display = 'block';
+        if (emailSpan) emailSpan.textContent = driveUserEmail || '(prihlásený)';
+        if (accSub) {
+            accSub.textContent = driveUserEmail
+                ? '✅ Prihlásený · ' + driveUserEmail
+                : '✅ Prihlásený do Google Drive';
+        }
+    } else {
+        notLoggedIn.style.display = 'block';
+        loggedIn.style.display = 'none';
+        if (accSub) accSub.textContent = 'Prihlás sa pre automatickú zálohu dát';
+    }
+}
+
 // Vykreslenie pri štarte aplikácie
 document.addEventListener('DOMContentLoaded', vykresliZoznamZnaciek);

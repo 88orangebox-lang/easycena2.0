@@ -12,6 +12,7 @@
     <meta name="theme-color" content="#0056b3">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="Roboto-Regular-normal.js"></script>
     <script src="Roboto-Bold-bold.js"></script>
 
@@ -1127,12 +1128,45 @@
                 </div>
             </div>
 
-            <!-- 6. ZÁLOHA A DÁTA -->
+            <!-- 6. CLOUD ZÁLOHA (GOOGLE DRIVE) -->
             <div class="acc-item" data-acc>
                 <div class="acc-head">
                     <div class="acc-icon">☁️</div>
                     <div class="acc-label">
-                        <div class="acc-name">Záloha a obnova dát</div>
+                        <div class="acc-name">Cloud záloha (Google Drive)</div>
+                        <div class="acc-sub" id="drive-acc-sub">Prihlás sa pre automatickú zálohu dát</div>
+                    </div>
+                    <div class="acc-arrow">›</div>
+                </div>
+                <div class="acc-body">
+                    <!-- Stav: NEPRIHLÁSENÝ -->
+                    <div id="drive-not-logged-in">
+                        <p class="settings-section-hint" style="margin-bottom: 12px;">
+                            Po prihlásení do svojho Google účtu bude môcť aplikácia ukladať zálohy
+                            do tvojho Google Drive (do priečinka <strong>EasyCena_zalohy</strong>).
+                        </p>
+                        <p class="settings-section-hint" style="margin-bottom: 12px;">
+                            🔒 Aplikácia má prístup <strong>iba</strong> k súborom, ktoré sama vytvorila —
+                            nevidí žiadne iné tvoje súbory v Drive. Tvoje dáta zostávajú u teba,
+                            prevádzkovateľ aplikácie k nim nemá prístup.
+                        </p>
+                        <button id="drive-login-btn" class="btn-primary" style="width: 100%; padding: 12px; font-size: 15px;">🔐 Prihlásiť sa do Google Drive</button>
+                    </div>
+                    <!-- Stav: PRIHLÁSENÝ -->
+                    <div id="drive-logged-in" style="display: none;">
+                        <div class="settings-section-hint" style="margin-bottom: 4px;">Prihlásený ako:</div>
+                        <div style="font-weight: bold; color: var(--accent-color); margin-bottom: 14px; word-break: break-all;" id="drive-user-email">…</div>
+                        <button id="drive-logout-btn" class="btn-secondary" style="width: 100%; padding: 12px; font-size: 15px;">Odhlásiť sa</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 7. LOKÁLNA ZÁLOHA A DÁTA -->
+            <div class="acc-item" data-acc>
+                <div class="acc-head">
+                    <div class="acc-icon">💾</div>
+                    <div class="acc-label">
+                        <div class="acc-name">Lokálna záloha (JSON súbor)</div>
                         <div class="acc-sub">Export do JSON · import zo súboru</div>
                     </div>
                     <div class="acc-arrow">›</div>
