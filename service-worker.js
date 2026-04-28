@@ -1,4 +1,4 @@
-const CACHE_NAME = 'easycena-pro-v2';
+const CACHE_NAME = 'easycena-pro-v3';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
