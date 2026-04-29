@@ -1,4 +1,4 @@
-const CACHE_NAME = 'easycena-pro-v5';
+const CACHE_NAME = 'easycena-pro-v6';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -12,6 +12,20 @@ const ASSETS_TO_CACHE = [
     './web-app-manifest-512x512.png',
     'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 ];
+
+// Súbory ktoré ako PWA často meníme — pre tieto použijeme NETWORK-FIRST
+// (pri online vždy stiahneme čerstvú verziu, offline padáme na cache).
+// Ostatné statické súbory (fonty, ikonky, CDN libs) zostávajú CACHE-FIRST.
+function jeDynamickyAsset(request) {
+    const url = new URL(request.url);
+    // Ignorujeme externé domény (CDN, Google API) — tie ostanú cache-first / direct
+    if (url.origin !== self.location.origin) return false;
+    const path = url.pathname;
+    return path.endsWith('/') ||
+           path.endsWith('/index.html') ||
+           path.endsWith('/app.js') ||
+           path.endsWith('/site.webmanifest');
+}
 
 // Inštalácia aplikácie do pamäte zariadenia
 self.addEventListener('install', event => {
@@ -41,11 +55,29 @@ self.addEventListener('activate', event => {
     );
 });
 
-// Používanie aplikácie bez internetu
+// Network-first pre HTML/JS, cache-first pre statické súbory
 self.addEventListener('fetch', event => {
-    event.respondWith(
-        caches.match(event.request).then(response => {
-            return response || fetch(event.request);
-        })
-    );
+    if (event.request.method !== 'GET') return; // POST/PUT/DELETE necháme tak (Drive API)
+
+    if (jeDynamickyAsset(event.request)) {
+        // NETWORK-FIRST: skús network, ak zlyhá padni na cache.
+        // Tým máme istotu že každý F5 dostane najnovší index.html a app.js.
+        event.respondWith(
+            fetch(event.request)
+                .then(response => {
+                    // Aktualizuj cache pre prípad budúceho offline použitia
+                    if (response && response.status === 200) {
+                        const respClone = response.clone();
+                        caches.open(CACHE_NAME).then(cache => cache.put(event.request, respClone));
+                    }
+                    return response;
+                })
+                .catch(() => caches.match(event.request))
+        );
+    } else {
+        // CACHE-FIRST: pre statické súbory (fonty, ikonky, CDN libs)
+        event.respondWith(
+            caches.match(event.request).then(response => response || fetch(event.request))
+        );
+    }
 });
