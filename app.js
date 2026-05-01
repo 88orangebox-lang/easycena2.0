@@ -2644,6 +2644,36 @@ function inteligentnaZaloha() {
     }
 }
 
+// Aplikuje obsah zálohy do localStorage. Volaná z lokálnej obnovy aj z Drive obnovy.
+// NEROBÍ confirm/alert/reload — to si rieši volajúci.
+function _aplikujZalohu(data) {
+    if (data.katalog) {
+        katalog = data.katalog;
+        localStorage.setItem('easycena_katalog', JSON.stringify(data.katalog));
+    }
+    if (data.archiv) {
+        archiv = data.archiv;
+        localStorage.setItem('easycena_archiv', JSON.stringify(data.archiv));
+    }
+    if (data.profil) localStorage.setItem('easycena_profil', JSON.stringify(data.profil));
+
+    // Logo a Podpis (bez stringify, lebo to je čistý text)
+    if (data.logo) localStorage.setItem('easycena_logo', data.logo);
+    if (data.podpis) localStorage.setItem('easycena_podpis', data.podpis);
+
+    // Ostatné dáta
+    if (data.pocitadlo) localStorage.setItem('easycena_pocitadlo', data.pocitadlo);
+    if (data.nastavenia) localStorage.setItem('easycena_nastavenia', JSON.stringify(data.nastavenia));
+
+    // Sync meta — ak záloha obsahuje _meta, prevezmeme jej timestampy
+    // (aby sme po obnove vedeli, "kedy bola táto verzia naposledy zmenená")
+    if (data._meta && data._meta.modifiedAt) {
+        localStorage.setItem('easycena_meta', JSON.stringify({
+            modifiedAt: data._meta.modifiedAt
+        }));
+    }
+}
+
 function obnovitZalohu(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -2654,33 +2684,7 @@ function obnovitZalohu(event) {
             const data = JSON.parse(e.target.result);
 
             if (confirm('Naozaj chceš prepísať aktuálne dáta zálohou? Táto akcia sa nedá vrátiť.')) {
-                // Zápis späť do localStorage (len ak daná položka v stiahnutej zálohe existuje)
-                if (data.katalog) {
-                    katalog = data.katalog;
-                    localStorage.setItem('easycena_katalog', JSON.stringify(data.katalog));
-                }
-                if (data.archiv) {
-                    archiv = data.archiv;
-                    localStorage.setItem('easycena_archiv', JSON.stringify(data.archiv));
-                }
-                if (data.profil) localStorage.setItem('easycena_profil', JSON.stringify(data.profil));
-
-                // Logo a Podpis (bez stringify, lebo to je čistý text)
-                if (data.logo) localStorage.setItem('easycena_logo', data.logo);
-                if (data.podpis) localStorage.setItem('easycena_podpis', data.podpis);
-
-                // Ostatné dáta
-                if (data.pocitadlo) localStorage.setItem('easycena_pocitadlo', data.pocitadlo);
-                if (data.nastavenia) localStorage.setItem('easycena_nastavenia', JSON.stringify(data.nastavenia));
-
-                // Sync meta — ak záloha obsahuje _meta, prevezmeme jej timestampy
-                // (aby sme po obnove vedeli, "kedy bola táto verzia naposledy zmenená")
-                if (data._meta && data._meta.modifiedAt) {
-                    localStorage.setItem('easycena_meta', JSON.stringify({
-                        modifiedAt: data._meta.modifiedAt
-                    }));
-                }
-
+                _aplikujZalohu(data);
                 alert('Dáta boli úspešne obnovené zo zálohy. Aplikácia sa teraz reštartuje.');
                 location.reload(); // Reštart pre načítanie profilu a lôg
             }
@@ -2993,9 +2997,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginBtn = document.getElementById('drive-login-btn');
     const logoutBtn = document.getElementById('drive-logout-btn');
     const backupBtn = document.getElementById('drive-backup-btn');
+    const restoreBtn = document.getElementById('drive-restore-btn');
     if (loginBtn) loginBtn.addEventListener('click', driveLogin);
     if (logoutBtn) logoutBtn.addEventListener('click', driveLogout);
     if (backupBtn) backupBtn.addEventListener('click', driveZalohuj);
+    if (restoreBtn) restoreBtn.addEventListener('click', driveZobrazZoznamZaloh);
 
     // Polling kým sa Google SDK načíta
     function tryInitGoogleSdk() {
@@ -3255,10 +3261,13 @@ async function _driveUploadJsonSubor(folderId, filename, dataJson) {
     const delimiter = `\r\n--${boundary}\r\n`;
     const closeDelim = `\r\n--${boundary}--`;
 
+    // Device label do popisu Drive súboru — zobrazí sa v zozname záloh bez sťahovania
+    const deviceLabel = (typeof nacitajDeviceLabel === 'function') ? nacitajDeviceLabel() : '';
     const metadata = {
         name: filename,
         parents: [folderId],
-        mimeType: 'application/json'
+        mimeType: 'application/json',
+        description: deviceLabel ? ('EasyCena záloha · ' + deviceLabel) : 'EasyCena záloha'
     };
 
     const body =
@@ -3349,4 +3358,172 @@ function oznacZmeneny(typ) {
     if (!meta.modifiedAt) meta.modifiedAt = {};
     meta.modifiedAt[typ] = Date.now();
     _ulozMeta(meta);
+}
+
+// =====================================================
+// MANUÁLNA OBNOVA ZO DRIVE (Commit 3.2)
+// =====================================================
+
+// Otvorí modal so zoznamom záloh z Drive priečinka EasyCena_zalohy.
+// Klik na záznam → confirm → stiahnutie + aplikácia + reload.
+async function driveZobrazZoznamZaloh() {
+    if (!driveAccessToken) {
+        if (typeof ukazToast === 'function') ukazToast('Nie si prihlásený do Google Drive.', 'error');
+        return;
+    }
+
+    // 1. Otvor modal s loading stavom
+    const overlay = _vytvorModalRamec('📥 Obnoviť zo zálohy', 'Načítavam zoznam záloh z Google Drive…');
+
+    try {
+        // 2. Nájdi priečinok (use existing helper)
+        const folderId = await _driveZistiPriecinokId();
+
+        // 3. Listing — zoradené najnovšie hore
+        const q = `'${folderId}' in parents and trashed=false and mimeType='application/json'`;
+        const fields = 'files(id,name,modifiedTime,description,size)';
+        const url = `${DRIVE_API_BASE}/files?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(fields)}&orderBy=modifiedTime desc&pageSize=100`;
+        const resp = await fetch(url, {
+            headers: { Authorization: 'Bearer ' + driveAccessToken }
+        });
+        if (!resp.ok) {
+            const err = new Error(`Drive listing failed (${resp.status})`);
+            err.status = resp.status;
+            throw err;
+        }
+        const data = await resp.json();
+        const subory = data.files || [];
+
+        // 4. Render zoznamu
+        _renderZoznamZaloh(overlay, subory);
+
+    } catch (err) {
+        console.error('Drive zoznam záloh failed:', err);
+        const body = overlay.querySelector('.sync-dialog-body');
+        if (body) body.textContent = '❌ Chyba: ' + (err.message || 'načítanie zlyhalo');
+        if (err && err.status === 401) {
+            if (confirm('Prihlásenie do Google Drive vypršalo. Chceš sa znova prihlásiť?')) {
+                _zatvorModal(overlay);
+                driveLogin();
+            }
+        }
+    }
+}
+
+// Vytvorí prázdny modal s nadpisom a body textom. Vráti overlay element.
+function _vytvorModalRamec(nadpis, bodyText) {
+    const overlay = document.createElement('div');
+    overlay.className = 'sync-dialog-overlay';
+    overlay.innerHTML = `
+        <div class="sync-dialog">
+            <h3>${nadpis}</h3>
+            <div class="sync-dialog-body">${bodyText || ''}</div>
+            <button type="button" class="sync-cancel">Zrušiť</button>
+        </div>
+    `;
+    overlay.querySelector('.sync-cancel').addEventListener('click', () => _zatvorModal(overlay));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) _zatvorModal(overlay); });
+    document.body.appendChild(overlay);
+    return overlay;
+}
+
+function _zatvorModal(overlay) {
+    if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+}
+
+// Vyrenderuje zoznam súborov ako klikateľné kartičky.
+function _renderZoznamZaloh(overlay, subory) {
+    const body = overlay.querySelector('.sync-dialog-body');
+    if (!body) return;
+
+    if (subory.length === 0) {
+        body.innerHTML = '<div class="sync-meta">V Drive priečinku <strong>EasyCena_zalohy</strong> zatiaľ nie je žiadna záloha.</div>';
+        return;
+    }
+
+    let html = '<div class="sync-meta">Vyber zálohu, ktorú chceš obnoviť. Aktuálne dáta sa <strong>prepíšu</strong>.</div>';
+    html += '<div class="backup-list">';
+    subory.forEach((s, idx) => {
+        const dt = new Date(s.modifiedTime);
+        const pad = (n) => String(n).padStart(2, '0');
+        const formatDate = `${pad(dt.getDate())}.${pad(dt.getMonth() + 1)}.${dt.getFullYear()} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+        // description = "EasyCena záloha · <deviceLabel>" — vypreparujeme deviceLabel
+        let deviceLabel = '';
+        if (s.description && s.description.includes('·')) {
+            deviceLabel = s.description.split('·').slice(1).join('·').trim();
+        }
+        const sizeKB = s.size ? Math.round(parseInt(s.size, 10) / 1024) : null;
+        const metaParts = [formatDate];
+        if (deviceLabel) metaParts.push('📍 ' + deviceLabel);
+        if (sizeKB) metaParts.push(sizeKB + ' KB');
+
+        html += `
+            <div class="backup-item" data-file-id="${s.id}" data-file-name="${_escapeHtml(s.name)}">
+                <div>
+                    <div class="backup-item-name">${_escapeHtml(s.name)}</div>
+                    <div class="backup-item-meta">${metaParts.join(' · ')}</div>
+                </div>
+                <div style="color: var(--accent-color); font-size: 18px;">›</div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    body.innerHTML = html;
+
+    // Klik handler
+    body.querySelectorAll('.backup-item').forEach(item => {
+        item.addEventListener('click', async () => {
+            const fileId = item.dataset.fileId;
+            const fileName = item.dataset.fileName;
+            await _stiahniAObnovZoDrive(overlay, fileId, fileName);
+        });
+    });
+}
+
+function _escapeHtml(s) {
+    return String(s || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// Stiahne JSON obsah zo zvoleného Drive súboru, opýta sa na potvrdenie a aplikuje.
+async function _stiahniAObnovZoDrive(overlay, fileId, fileName) {
+    if (!confirm(`Naozaj obnoviť zo zálohy "${fileName}"?\nAktuálne dáta sa prepíšu. Akcia sa nedá vrátiť.`)) {
+        return;
+    }
+    const body = overlay.querySelector('.sync-dialog-body');
+    if (body) body.innerHTML = '<div class="sync-meta">Sťahujem zálohu zo Google Drive…</div>';
+
+    try {
+        const resp = await fetch(`${DRIVE_API_BASE}/files/${fileId}?alt=media`, {
+            headers: { Authorization: 'Bearer ' + driveAccessToken }
+        });
+        if (!resp.ok) {
+            const err = new Error(`Drive download failed (${resp.status})`);
+            err.status = resp.status;
+            throw err;
+        }
+        const data = await resp.json();
+
+        // Aplikuj zálohu cez zdieľaný helper (rovnaký ako pre lokálny obnovitZalohu)
+        _aplikujZalohu(data);
+
+        if (typeof ukazToast === 'function') ukazToast('☁️ Záloha obnovená — aplikácia sa reštartuje', 'success');
+        _zatvorModal(overlay);
+
+        // Krátka pauza aby toast zazrel + reload
+        setTimeout(() => location.reload(), 800);
+    } catch (err) {
+        console.error('Drive download/apply failed:', err);
+        if (body) body.innerHTML = '<div class="sync-meta" style="border: 1px solid var(--danger-btn-bg-color);">❌ Chyba: ' + (err.message || 'sťahovanie zlyhalo') + '</div>';
+        if (err && err.status === 401) {
+            if (confirm('Prihlásenie do Google Drive vypršalo. Chceš sa znova prihlásiť?')) {
+                _zatvorModal(overlay);
+                driveLogin();
+            }
+        }
+    }
 }
