@@ -3014,6 +3014,8 @@ document.addEventListener('DOMContentLoaded', () => {
             scope: GOOGLE_DRIVE_SCOPE,
             callback: handleDriveAuthResponse
         });
+        // Po init SDK skúsime silent re-auth (alebo pull-on-open ak token je platný)
+        if (typeof _skusSilentDriveReauth === 'function') _skusSilentDriveReauth();
     }
     tryInitGoogleSdk();
 });
@@ -3021,10 +3023,18 @@ document.addEventListener('DOMContentLoaded', () => {
 // Spracovanie odpovede z Google OAuth popup-u
 function handleDriveAuthResponse(response) {
     if (response.error) {
+        // Silent re-auth zlyhanie (napr. user odvolal povolenie) — tichá ignor
+        if (_silentReauthBezi) {
+            console.log('Silent Drive re-auth zlyhalo — treba manuálne prihlásenie');
+            _silentReauthBezi = false;
+            localStorage.removeItem('easycena_drive_token');
+            return;
+        }
         console.error('Drive auth error:', response);
         alert('Prihlásenie do Google Drive zlyhalo:\n' + (response.error_description || response.error));
         return;
     }
+    _silentReauthBezi = false;
     driveAccessToken = response.access_token;
     const expiresAt = Date.now() + ((response.expires_in || 3600) * 1000);
     localStorage.setItem('easycena_drive_token', JSON.stringify({
@@ -3042,10 +3052,13 @@ function handleDriveAuthResponse(response) {
             localStorage.setItem('easycena_drive_email', driveUserEmail);
         }
         aktualizujDriveUI();
+        // Po prihlásení skús pull-on-open (ak ešte nebol)
+        if (typeof _skusPullOnOpen === 'function') _skusPullOnOpen();
     })
     .catch(err => {
         console.warn('Drive userinfo fetch failed:', err);
         aktualizujDriveUI();
+        if (typeof _skusPullOnOpen === 'function') _skusPullOnOpen();
     });
 }
 
@@ -3358,6 +3371,8 @@ function oznacZmeneny(typ) {
     if (!meta.modifiedAt) meta.modifiedAt = {};
     meta.modifiedAt[typ] = Date.now();
     _ulozMeta(meta);
+    // Auto-push: ak je užívateľ prihlásený do Drive, naplánuj synchronizáciu
+    if (typeof _naplanujAutoPush === 'function') _naplanujAutoPush();
 }
 
 // =====================================================
@@ -3478,6 +3493,334 @@ function _renderZoznamZaloh(overlay, subory) {
             await _stiahniAObnovZoDrive(overlay, fileId, fileName);
         });
     });
+}
+
+// =====================================================
+// SILENT RE-AUTH + PULL ON OPEN + AUTO-PUSH (Commit 3.3)
+// =====================================================
+
+let _silentReauthBezi = false;
+let _pullOnOpenSpustenyRaz = false;
+
+// Helper: max timestamp z _meta.modifiedAt objektu
+function _maxModifiedAt(modifiedAt) {
+    if (!modifiedAt) return 0;
+    const vals = Object.values(modifiedAt).filter(v => typeof v === 'number');
+    return vals.length ? Math.max(...vals) : 0;
+}
+
+// Pri starte appky — ak token expiroval ale máme uložený email,
+// skúsi tichú obnovu prihlásenia. Ak Google odmietne (user odvolal
+// povolenie), ostane neprihlásený.
+function _skusSilentDriveReauth() {
+    if (driveAccessToken) {
+        // Token je stále platný (z localStorage) → rovno pull
+        _skusPullOnOpen();
+        return;
+    }
+    const email = localStorage.getItem('easycena_drive_email');
+    if (!email) return; // Užívateľ sa nikdy neprihlásil
+    if (!driveTokenClient) {
+        setTimeout(_skusSilentDriveReauth, 300);
+        return;
+    }
+    _silentReauthBezi = true;
+    try {
+        driveTokenClient.requestAccessToken({ prompt: '' });
+    } catch (e) {
+        _silentReauthBezi = false;
+        console.warn('Silent reauth throw:', e);
+    }
+}
+
+// Pri prvom otvorení appky stiahne najnovšiu zálohu z Drive a ak má
+// novšie zmeny než lokál, automaticky ich aplikuje (toast + reload).
+// Žiadny dialog na štarte — predpokladáme, že lokál nemá pending zmeny.
+async function _skusPullOnOpen() {
+    if (_pullOnOpenSpustenyRaz) return;
+    _pullOnOpenSpustenyRaz = true;
+    if (!driveAccessToken) return;
+
+    try {
+        const najnovsi = await _driveNajdiNajnovsiSubor();
+        if (!najnovsi) return;
+
+        const cloudData = await _driveStiahniSubor(najnovsi.id);
+        if (!cloudData || !cloudData._meta) return; // stará záloha bez _meta
+
+        const localMeta = _nacitajMeta();
+        const localMax = _maxModifiedAt(localMeta.modifiedAt);
+        const cloudMax = _maxModifiedAt(cloudData._meta.modifiedAt);
+
+        if (cloudMax > localMax) {
+            _aplikujZalohu(cloudData);
+            const odKoho = (cloudData._meta.deviceLabel) ? ('zo zariadenia ' + cloudData._meta.deviceLabel) : 'z cloudu';
+            ukazToast('☁️ Stiahnuté novšie zmeny ' + odKoho + ' — reštartujem', 'info', 2000);
+            setTimeout(() => location.reload(), 2000);
+        }
+    } catch (err) {
+        console.warn('Pull on open failed:', err);
+    }
+}
+
+// Vráti metadata najnovšieho JSON súboru v priečinku EasyCena_zalohy, alebo null.
+async function _driveNajdiNajnovsiSubor() {
+    const folderId = await _driveZistiPriecinokId();
+    const q = `'${folderId}' in parents and trashed=false and mimeType='application/json'`;
+    const url = `${DRIVE_API_BASE}/files?q=${encodeURIComponent(q)}&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc&pageSize=1`;
+    const resp = await fetch(url, { headers: { Authorization: 'Bearer ' + driveAccessToken } });
+    if (!resp.ok) {
+        const err = new Error(`Drive search failed (${resp.status})`); err.status = resp.status; throw err;
+    }
+    const data = await resp.json();
+    return (data.files && data.files.length > 0) ? data.files[0] : null;
+}
+
+// Stiahne JSON obsah daného súboru a vráti parsed objekt.
+async function _driveStiahniSubor(fileId) {
+    const resp = await fetch(`${DRIVE_API_BASE}/files/${fileId}?alt=media`, {
+        headers: { Authorization: 'Bearer ' + driveAccessToken }
+    });
+    if (!resp.ok) {
+        const err = new Error(`Drive download failed (${resp.status})`); err.status = resp.status; throw err;
+    }
+    return await resp.json();
+}
+
+// === AUTO-PUSH ===
+const AUTOPUSH_DEBOUNCE_MS = 30 * 1000;       // 30s ticha = upload
+const AUTOPUSH_MAX_WAIT_MS = 5 * 60 * 1000;   // 5min poistka aj pri trvalej činnosti
+let _autopushDebounceTimer = null;
+let _autopushMaxWaitTimer = null;
+let _autopushPending = false;
+let _autopushBezi = false;
+
+// Volaná z oznacZmeneny() — naštartuje 30s debounce timer.
+function _naplanujAutoPush() {
+    if (!driveAccessToken) return; // neprihlásený
+    _autopushPending = true;
+    clearTimeout(_autopushDebounceTimer);
+    _autopushDebounceTimer = setTimeout(_spustiAutoPush, AUTOPUSH_DEBOUNCE_MS);
+    if (!_autopushMaxWaitTimer) {
+        _autopushMaxWaitTimer = setTimeout(_spustiAutoPush, AUTOPUSH_MAX_WAIT_MS);
+    }
+}
+
+// Spustí sa keď debounce alebo max-wait timer vyprší.
+async function _spustiAutoPush() {
+    clearTimeout(_autopushDebounceTimer);
+    clearTimeout(_autopushMaxWaitTimer);
+    _autopushDebounceTimer = null;
+    _autopushMaxWaitTimer = null;
+    if (!_autopushPending) return;
+    if (!driveAccessToken) return;
+    if (_autopushBezi) return;
+    _autopushBezi = true;
+    _autopushPending = false;
+
+    try {
+        // 1. Najprv pull — má cloud novšie zmeny než my máme známe?
+        const najnovsi = await _driveNajdiNajnovsiSubor();
+        let cloudData = null;
+        if (najnovsi) {
+            cloudData = await _driveStiahniSubor(najnovsi.id);
+        }
+
+        if (cloudData && cloudData._meta) {
+            const localMeta = _nacitajMeta();
+            const localMax = _maxModifiedAt(localMeta.modifiedAt);
+            const cloudMax = _maxModifiedAt(cloudData._meta.modifiedAt);
+
+            if (cloudMax > localMax) {
+                // KONFLIKT: cloud má novšie aj my máme nesynchronizované zmeny
+                _zobrazKonfliktDialog(cloudData);
+                _autopushBezi = false;
+                return;
+            }
+        }
+
+        // 2. Žiaden konflikt → silent push
+        const folderId = await _driveZistiPriecinokId();
+        const dataJson = vytvorDataZalohy();
+        const ts = new Date(); const pad = (n) => String(n).padStart(2, '0');
+        const filename = `easycena_zaloha_${ts.getFullYear()}-${pad(ts.getMonth() + 1)}-${pad(ts.getDate())}_${pad(ts.getHours())}-${pad(ts.getMinutes())}.json`;
+        await _driveUploadJsonSubor(folderId, filename, dataJson);
+        localStorage.setItem('easycena_drive_last_backup', String(Date.now()));
+        aktualizujDriveZalohaStatus();
+        ukazToast('☁️ Synchronizované', 'success', 2000);
+    } catch (err) {
+        console.warn('Auto-push failed:', err);
+        ukazToast('⚠️ Auto-záloha zlyhala — skús neskôr cez "Zálohovať teraz"', 'error', 4000);
+        // Pri 401 nech sa pri ďalšom pokuse riešia tokeny — silent reauth pri ďalšom load-e
+    } finally {
+        _autopushBezi = false;
+    }
+}
+
+// === KONFLIKT DIALOG ===
+function _zobrazKonfliktDialog(cloudData) {
+    const localMeta = _nacitajMeta();
+    const cloudDevLabel = (cloudData._meta && cloudData._meta.deviceLabel) || 'iné zariadenie';
+    const localDevLabel = (typeof nacitajDeviceLabel === 'function' && nacitajDeviceLabel()) || 'toto zariadenie';
+
+    const cloudExpMs = (cloudData._meta && cloudData._meta.exportedAt) || _maxModifiedAt(cloudData._meta && cloudData._meta.modifiedAt);
+    const localMax = _maxModifiedAt(localMeta.modifiedAt);
+    const localPrazdny = !localMax;
+
+    const fmt = (ms) => {
+        if (!ms) return '?';
+        const d = new Date(ms);
+        const pad = n => String(n).padStart(2, '0');
+        return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+
+    // Default: prázdne lokál → "Stiahnuť cloud", inak "Spojiť oboje"
+    const defaultVoluba = localPrazdny ? 'cloud' : 'merge';
+
+    const overlay = document.createElement('div');
+    overlay.className = 'sync-dialog-overlay';
+    overlay.innerHTML = `
+        <div class="sync-dialog">
+            <h3>⚠️ Synchronizácia — konflikt</h3>
+            <div class="sync-meta">
+                ☁️ <strong>Cloud (${_escapeHtml(cloudDevLabel)})</strong>: ${fmt(cloudExpMs)}<br>
+                💻 <strong>Lokálne (${_escapeHtml(localDevLabel)})</strong>: ${localPrazdny ? 'žiadne lokálne zmeny' : fmt(localMax)}
+            </div>
+            <button type="button" class="sync-option ${defaultVoluba === 'merge' ? 'recommended' : ''}" data-action="merge">
+                <div class="sync-option-title">🔄 Spojiť oboje${defaultVoluba === 'merge' ? ' (odporúčané)' : ''}</div>
+                <div class="sync-option-desc">Zachová ponuky z oboch zariadení. Pri zhodnom ID vyhrá novšia. Katalóg a profil = novšia verzia.</div>
+            </button>
+            <button type="button" class="sync-option ${defaultVoluba === 'cloud' ? 'recommended' : ''}" data-action="cloud">
+                <div class="sync-option-title">☁️ Stiahnuť cloud verziu${defaultVoluba === 'cloud' ? ' (odporúčané)' : ''}</div>
+                <div class="sync-option-desc">Lokálne zmeny budú stratené.${localPrazdny ? ' Toto zariadenie zatiaľ nemá vlastné dáta.' : ''}</div>
+            </button>
+            <button type="button" class="sync-option" data-action="local">
+                <div class="sync-option-title">💻 Použiť lokálne</div>
+                <div class="sync-option-desc">Cloud sa prepíše dátami z tohto zariadenia.</div>
+            </button>
+            <button type="button" class="sync-cancel">Rozhodnúť neskôr</button>
+        </div>
+    `;
+    overlay.querySelector('.sync-cancel').addEventListener('click', () => _zatvorModal(overlay));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) _zatvorModal(overlay); });
+    overlay.querySelectorAll('.sync-option').forEach(btn => {
+        btn.addEventListener('click', () => _vyriesKonflikt(btn.dataset.action, cloudData, overlay));
+    });
+    document.body.appendChild(overlay);
+}
+
+async function _vyriesKonflikt(action, cloudData, overlay) {
+    const dialog = overlay.querySelector('.sync-dialog');
+    dialog.innerHTML = '<h3>Synchronizujem…</h3><div class="sync-meta">Prosím počkaj.</div>';
+
+    try {
+        if (action === 'local') {
+            // Push lokálnu verziu späť do cloudu, lokál sa nemení
+            const folderId = await _driveZistiPriecinokId();
+            const dataJson = vytvorDataZalohy();
+            const ts = new Date(); const pad = (n) => String(n).padStart(2, '0');
+            const filename = `easycena_zaloha_${ts.getFullYear()}-${pad(ts.getMonth() + 1)}-${pad(ts.getDate())}_${pad(ts.getHours())}-${pad(ts.getMinutes())}.json`;
+            await _driveUploadJsonSubor(folderId, filename, dataJson);
+            localStorage.setItem('easycena_drive_last_backup', String(Date.now()));
+            aktualizujDriveZalohaStatus();
+            _zatvorModal(overlay);
+            ukazToast('☁️ Lokálne zmeny pushnuté do cloudu', 'success');
+            return;
+        }
+
+        let finalData;
+        if (action === 'merge') finalData = _zlucData(cloudData);
+        else if (action === 'cloud') finalData = cloudData;
+        else throw new Error('Neznáma akcia: ' + action);
+
+        // Aplikuj výsledok lokálne
+        _aplikujZalohu(finalData);
+
+        // Push merged/cloud stav späť (aby všetky zariadenia konvergovali na rovnakú verziu)
+        const folderId = await _driveZistiPriecinokId();
+        const ts = new Date(); const pad = (n) => String(n).padStart(2, '0');
+        const filename = `easycena_zaloha_${ts.getFullYear()}-${pad(ts.getMonth() + 1)}-${pad(ts.getDate())}_${pad(ts.getHours())}-${pad(ts.getMinutes())}.json`;
+        const novyJson = vytvorDataZalohy(); // už beží nad merged dátami v localStorage
+        await _driveUploadJsonSubor(folderId, filename, novyJson);
+        localStorage.setItem('easycena_drive_last_backup', String(Date.now()));
+
+        _zatvorModal(overlay);
+        const txt = action === 'merge' ? '☁️ Zlúčené — reštartujem' : '☁️ Stiahnuté z cloudu — reštartujem';
+        ukazToast(txt, 'success', 1500);
+        setTimeout(() => location.reload(), 1500);
+    } catch (err) {
+        console.error('Konflikt resolution failed:', err);
+        dialog.innerHTML = '<h3>❌ Chyba</h3><div class="sync-meta">' + _escapeHtml(err.message || 'sync zlyhal') + '</div><button type="button" class="sync-cancel">Zavrieť</button>';
+        dialog.querySelector('.sync-cancel').addEventListener('click', () => _zatvorModal(overlay));
+    }
+}
+
+// === MERGE LOGIKA ===
+function _zlucData(cloudData) {
+    const localMetaRaw = _nacitajMeta();
+    const local = {
+        katalog: katalog,
+        archiv: archiv,
+        profil: localStorage.getItem('easycena_profil') ? JSON.parse(localStorage.getItem('easycena_profil')) : null,
+        logo: localStorage.getItem('easycena_logo') || null,
+        podpis: localStorage.getItem('easycena_podpis') || null,
+        pocitadlo: localStorage.getItem('easycena_pocitadlo') || 1,
+        nastavenia: localStorage.getItem('easycena_nastavenia') ? JSON.parse(localStorage.getItem('easycena_nastavenia')) : null,
+        _meta: { modifiedAt: (localMetaRaw && localMetaRaw.modifiedAt) || {} }
+    };
+    const cloudMA = (cloudData._meta && cloudData._meta.modifiedAt) || {};
+    const localMA = local._meta.modifiedAt;
+
+    const merged = { ...local };
+
+    // Katalog: meta-level — novšia verzia vyhráva
+    const lkat = localMA.katalog || 0, ckat = cloudMA.katalog || 0;
+    if (ckat > lkat) merged.katalog = cloudData.katalog || [];
+
+    // Profil: meta-level (logo + podpis idú spolu)
+    const lpro = localMA.profil || 0, cpro = cloudMA.profil || 0;
+    if (cpro > lpro) {
+        merged.profil = cloudData.profil;
+        if (cloudData.logo)   merged.logo   = cloudData.logo;
+        if (cloudData.podpis) merged.podpis = cloudData.podpis;
+    }
+
+    // Archív: per-record podľa modifiedAt (s fallback na _meta.modifiedAt.archiv pre staré záznamy)
+    merged.archiv = _zlucArchiv(
+        local.archiv || [],
+        cloudData.archiv || [],
+        localMA.archiv || 0,
+        cloudMA.archiv || 0
+    );
+
+    // _meta: vezme max() z oboch
+    merged._meta = {
+        modifiedAt: {
+            katalog: Math.max(lkat, ckat),
+            profil:  Math.max(lpro, cpro),
+            archiv:  Math.max(localMA.archiv || 0, cloudMA.archiv || 0)
+        }
+    };
+
+    return merged;
+}
+
+function _zlucArchiv(localArr, cloudArr, localFallback, cloudFallback) {
+    // Kľúč = id ponuky. Pri konflikte (rovnaké id) vyhrá vyšší modifiedAt.
+    const map = new Map();
+    localArr.forEach(p => {
+        const ts = (typeof p.modifiedAt === 'number') ? p.modifiedAt : localFallback;
+        map.set(p.id, { ponuka: p, ts: ts });
+    });
+    cloudArr.forEach(p => {
+        const ts = (typeof p.modifiedAt === 'number') ? p.modifiedAt : cloudFallback;
+        const existing = map.get(p.id);
+        if (!existing || ts > existing.ts) {
+            map.set(p.id, { ponuka: p, ts: ts });
+        }
+    });
+    // Zoradenie podľa id desc (chronologicky najnovšie hore — ako v existujúcom UI)
+    return Array.from(map.values()).map(x => x.ponuka).sort((a, b) => (b.id || 0) - (a.id || 0));
 }
 
 function _escapeHtml(s) {
