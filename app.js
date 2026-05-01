@@ -1082,6 +1082,7 @@ document.getElementById('ulozit-do-katalogu-btn').addEventListener('click', () =
 
 function dokonciUlozenieKatalogu() {
     localStorage.setItem('easycena_katalog', JSON.stringify(katalog));
+    if (typeof oznacZmeneny === 'function') oznacZmeneny('katalog');
     vykresliKatalog();
     
     document.getElementById('katalog-uprava-id').value = "";
@@ -1376,6 +1377,7 @@ function zmazZKatalogu(index) {
     if(confirm("Zmazať z katalógu?")) {
         katalog.splice(index, 1);
         localStorage.setItem('easycena_katalog', JSON.stringify(katalog));
+        if (typeof oznacZmeneny === 'function') oznacZmeneny('katalog');
         vykresliKatalog();
     }
 }
@@ -1386,18 +1388,21 @@ function zmazZKatalogu(index) {
 document.getElementById('ulozit-archiv-btn').addEventListener('click', () => {
     ulozRozpracovanuPonuku();
     const data = JSON.parse(localStorage.getItem('easycena_rozpracovana'));
-    
+
     data.datum = new Date().toLocaleDateString('sk-SK');
     data.sumaZobrazena = document.getElementById('konecna-suma').innerText;
     // Uloženie vlajky, ak ukladáme Súpis prác
     if (window.jeRezimSupis) {
         data.obsahujeSupis = true;
     }
-    
+
+    // Per-record timestamp pre 3-way merge — vždy aktuálny pri ukladaní
+    data.modifiedAt = Date.now();
+
     // --- NOVÁ LOGIKA: Ochrana proti duplicitám v archíve ---
     // Skontrolujeme, či ponuka s rovnakým číslom už v archíve existuje
     const existujuciIndex = archiv.findIndex(p => p.cislo === data.cislo);
-    
+
     if (existujuciIndex !== -1) {
         // Ponuka existuje: Zachováme jej pôvodné technické ID a len prepíšeme dáta
         data.id = archiv[existujuciIndex].id;
@@ -1411,8 +1416,9 @@ document.getElementById('ulozit-archiv-btn').addEventListener('click', () => {
 
     localStorage.setItem('easycena_archiv', JSON.stringify(archiv));
     localStorage.setItem('easycena_rozpracovana', JSON.stringify(data)); // Uložíme späť aj s prideleným ID
+    if (typeof oznacZmeneny === 'function') oznacZmeneny('archiv');
     vykresliArchiv();
-    
+
     alert('Úspešne uložené v archíve.');
 });
 
@@ -1612,6 +1618,7 @@ function zmazZArchivu(id) {
     if(confirm('Naozaj zmazať z archívu?')) {
         archiv = archiv.filter(p => p.id !== id);
         localStorage.setItem('easycena_archiv', JSON.stringify(archiv));
+        if (typeof oznacZmeneny === 'function') oznacZmeneny('archiv');
         vykresliArchiv();
     }
 }
@@ -1799,14 +1806,15 @@ document.getElementById('ulozit-profil-btn').addEventListener('click', () => {
         textPodpisu: document.getElementById('profil-text-podpisu').value
     };
     localStorage.setItem('easycena_profil', JSON.stringify(profil));
-    
+    if (typeof oznacZmeneny === 'function') oznacZmeneny('profil');
+
     let noveCislo = parseInt(document.getElementById('profil-pocitadlo').value) || 1;
     let aktualnyRok = new Date().getFullYear();
     let pocitadlo = JSON.parse(localStorage.getItem('pocitadloPonuk')) || { rok: aktualnyRok, pocet: 0 };
-    
-    pocitadlo.pocet = noveCislo - 1; 
+
+    pocitadlo.pocet = noveCislo - 1;
     localStorage.setItem('pocitadloPonuk', JSON.stringify(pocitadlo));
-    
+
     alert('Profil uložený.');
 });
 
@@ -2573,17 +2581,28 @@ document.getElementById('btn-zdielat-pdf').addEventListener('click', () => vygen
 // ==========================================
 
 function vytvorDataZalohy() {
-    // Vytvoríme objekt, do ktorého naskladáme kompletne celú pamäť
+    // Naskladáme celú pamäť do jedného objektu
+    const meta = (typeof _nacitajMeta === 'function') ? _nacitajMeta() : { modifiedAt: {} };
+    const deviceLabel = (typeof nacitajDeviceLabel === 'function') ? nacitajDeviceLabel() : '';
+
     const zaloha = {
         katalog: localStorage.getItem('easycena_katalog') ? JSON.parse(localStorage.getItem('easycena_katalog')) : [],
         archiv: localStorage.getItem('easycena_archiv') ? JSON.parse(localStorage.getItem('easycena_archiv')) : [],
         profil: localStorage.getItem('easycena_profil') ? JSON.parse(localStorage.getItem('easycena_profil')) : null,
         logo: localStorage.getItem('easycena_logo') || null,
-        
+
         // Tieto kľúče si tu rovno pripravíme pre Krok 2 a 3, aby sme tento kód už nemuseli neskôr prepisovať
-        podpis: localStorage.getItem('easycena_podpis') || null, 
+        podpis: localStorage.getItem('easycena_podpis') || null,
         pocitadlo: localStorage.getItem('easycena_pocitadlo') || 1,
-        nastavenia: localStorage.getItem('easycena_nastavenia') ? JSON.parse(localStorage.getItem('easycena_nastavenia')) : null
+        nastavenia: localStorage.getItem('easycena_nastavenia') ? JSON.parse(localStorage.getItem('easycena_nastavenia')) : null,
+
+        // _meta pre 3-way merge sync model — pridané v Commit 3.1
+        _meta: {
+            modifiedAt: meta.modifiedAt || {},
+            deviceLabel: deviceLabel,
+            exportedAt: Date.now(),
+            schemaVersion: 1
+        }
     };
 
     // Skonvertujeme to na text, ktorý sa uloží do .json súboru
@@ -2645,14 +2664,22 @@ function obnovitZalohu(event) {
                     localStorage.setItem('easycena_archiv', JSON.stringify(data.archiv));
                 }
                 if (data.profil) localStorage.setItem('easycena_profil', JSON.stringify(data.profil));
-                
+
                 // Logo a Podpis (bez stringify, lebo to je čistý text)
                 if (data.logo) localStorage.setItem('easycena_logo', data.logo);
                 if (data.podpis) localStorage.setItem('easycena_podpis', data.podpis);
-                
+
                 // Ostatné dáta
                 if (data.pocitadlo) localStorage.setItem('easycena_pocitadlo', data.pocitadlo);
                 if (data.nastavenia) localStorage.setItem('easycena_nastavenia', JSON.stringify(data.nastavenia));
+
+                // Sync meta — ak záloha obsahuje _meta, prevezmeme jej timestampy
+                // (aby sme po obnove vedeli, "kedy bola táto verzia naposledy zmenená")
+                if (data._meta && data._meta.modifiedAt) {
+                    localStorage.setItem('easycena_meta', JSON.stringify({
+                        modifiedAt: data._meta.modifiedAt
+                    }));
+                }
 
                 alert('Dáta boli úspešne obnovené zo zálohy. Aplikácia sa teraz reštartuje.');
                 location.reload(); // Reštart pre načítanie profilu a lôg
@@ -2798,6 +2825,7 @@ document.getElementById('spustit-import-btn').addEventListener('click', () => {
     });
 
     localStorage.setItem('easycena_katalog', JSON.stringify(katalog));
+    if (typeof oznacZmeneny === 'function') oznacZmeneny('katalog');
     vykresliKatalog();
     
     document.getElementById('import-mapovanie-box').style.display = 'none';
@@ -3121,6 +3149,7 @@ async function driveZalohuj() {
         if (btn) { btn.disabled = false; btn.textContent = '📤 Zálohovať teraz'; }
         aktualizujDriveZalohaStatus();
         if (statusEl) statusEl.textContent = '✅ Zálohované práve teraz';
+        if (typeof ukazToast === 'function') ukazToast('☁️ Zálohované do Google Drive', 'success');
     } catch (err) {
         console.error('Drive zaloha failed:', err);
         if (btn) { btn.disabled = false; btn.textContent = '📤 Zálohovať teraz'; }
@@ -3260,3 +3289,64 @@ async function _driveUploadJsonSubor(folderId, filename, dataJson) {
 
 // Vykreslenie pri štarte aplikácie
 document.addEventListener('DOMContentLoaded', vykresliZoznamZnaciek);
+
+// =====================================================
+// TOAST NOTIFIKÁCIE
+// =====================================================
+// ukazToast('Text', 'success' | 'error' | 'info', durationMs)
+function ukazToast(text, typ = 'info', durationMs = 3000) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = 'toast ' + typ;
+    toast.textContent = text;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add('fading');
+        setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 320);
+    }, durationMs);
+}
+
+// =====================================================
+// DEVICE LABEL — názov tohto zariadenia v Nastaveniach
+// =====================================================
+function nacitajDeviceLabel() {
+    return localStorage.getItem('easycena_device_label') || '';
+}
+function ulozDeviceLabel(label) {
+    const trimmed = String(label || '').trim().slice(0, 40);
+    if (trimmed) localStorage.setItem('easycena_device_label', trimmed);
+    else        localStorage.removeItem('easycena_device_label');
+}
+document.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('device-label-input');
+    if (!input) return;
+    input.value = nacitajDeviceLabel();
+    input.addEventListener('change', () => ulozDeviceLabel(input.value));
+    input.addEventListener('blur',   () => ulozDeviceLabel(input.value));
+});
+
+// =====================================================
+// SYNC META — modifiedAt timestampy pre katalog/profil/archiv
+// =====================================================
+// easycena_meta = {
+//   modifiedAt: { katalog: ms, profil: ms, archiv: ms },
+//   deviceLabel: '...'   // duplikát z easycena_device_label, pre zálohu
+// }
+function _nacitajMeta() {
+    try {
+        return JSON.parse(localStorage.getItem('easycena_meta')) || { modifiedAt: {} };
+    } catch (e) {
+        return { modifiedAt: {} };
+    }
+}
+function _ulozMeta(meta) {
+    localStorage.setItem('easycena_meta', JSON.stringify(meta));
+}
+// Označí, že daný typ dát bol zmenený teraz. typ: 'katalog' | 'profil' | 'archiv'
+function oznacZmeneny(typ) {
+    const meta = _nacitajMeta();
+    if (!meta.modifiedAt) meta.modifiedAt = {};
+    meta.modifiedAt[typ] = Date.now();
+    _ulozMeta(meta);
+}

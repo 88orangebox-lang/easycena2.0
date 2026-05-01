@@ -622,6 +622,118 @@
             .pp-label { font-size: 10px; letter-spacing: 0.2px; }
         }
 
+        /* ===== TOAST notifikácie ===== */
+        #toast-container {
+            position: fixed;
+            bottom: 140px; left: 50%;
+            transform: translateX(-50%);
+            display: flex; flex-direction: column; gap: 8px;
+            z-index: 10000;
+            pointer-events: none;
+            width: max-content; max-width: calc(100% - 30px);
+        }
+        .toast {
+            padding: 12px 18px;
+            border-radius: 8px;
+            background: var(--card-bg-color);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+            font-size: 14px; font-weight: 500;
+            line-height: 1.4;
+            pointer-events: auto;
+            animation: toast-in 0.25s ease-out;
+            max-width: 480px;
+        }
+        .toast.success { border-color: var(--success-btn-bg-color); }
+        .toast.error   { border-color: var(--danger-btn-bg-color); }
+        .toast.info    { border-color: var(--accent-color); }
+        .toast.fading  { animation: toast-out 0.3s ease-in forwards; }
+        @keyframes toast-in {
+            from { transform: translateY(20px); opacity: 0; }
+            to   { transform: translateY(0);    opacity: 1; }
+        }
+        @keyframes toast-out {
+            from { transform: translateY(0);    opacity: 1; }
+            to   { transform: translateY(20px); opacity: 0; }
+        }
+
+        /* ===== Sync conflict dialog ===== */
+        .sync-dialog-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 9999; padding: 20px;
+        }
+        .sync-dialog {
+            background: var(--card-bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px; max-width: 520px; width: 100%;
+            max-height: calc(100vh - 40px); overflow-y: auto;
+        }
+        .sync-dialog h3 { margin: 0 0 12px 0; font-size: 18px; color: var(--text-color); }
+        .sync-dialog .sync-meta {
+            background: var(--input-bg-color);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        .sync-dialog .sync-meta strong { color: var(--accent-color) !important; }
+        .sync-dialog .sync-option {
+            display: block; width: 100%;
+            text-align: left;
+            background: var(--input-bg-color);
+            border: 1px solid var(--input-border-color);
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-top: 8px;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+            color: var(--text-color);
+            font-size: 14px;
+        }
+        .sync-dialog .sync-option:hover { border-color: var(--accent-color); }
+        .sync-dialog .sync-option.recommended {
+            border-color: var(--accent-color);
+            background: color-mix(in srgb, var(--accent-color) 10%, transparent);
+        }
+        .sync-dialog .sync-option-title {
+            font-weight: bold;
+            color: var(--text-color);
+            margin-bottom: 4px;
+        }
+        .sync-dialog .sync-option-desc {
+            font-size: 12px;
+            color: var(--text-muted-color);
+            line-height: 1.4;
+        }
+        .sync-dialog .sync-cancel {
+            display: block; width: 100%;
+            background: transparent; border: none;
+            color: var(--text-muted-color);
+            font-size: 13px;
+            padding: 12px 0 0 0; margin: 8px 0 0 0;
+            cursor: pointer; text-align: center;
+        }
+        .sync-dialog .sync-cancel:hover { color: var(--text-color); }
+
+        /* ===== Drive zoznam záloh dialog ===== */
+        .sync-dialog .backup-list { margin: 12px 0; max-height: 50vh; overflow-y: auto; }
+        .sync-dialog .backup-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 12px;
+            border: 1px solid var(--input-border-color);
+            border-radius: 8px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: border-color 0.15s;
+        }
+        .sync-dialog .backup-item:hover { border-color: var(--accent-color); }
+        .sync-dialog .backup-item-name { font-size: 13px; color: var(--text-color); }
+        .sync-dialog .backup-item-meta { font-size: 11px; color: var(--text-muted-color); }
+
         @media (min-width: 768px) {
             .settings-accordion { max-width: 720px; margin-left: auto; margin-right: auto; }
             .acc-body .flex-row { gap: 12px; }
@@ -1157,8 +1269,13 @@
                         <div class="settings-section-hint" style="margin-bottom: 4px;">Prihlásený ako:</div>
                         <div style="font-weight: bold; color: var(--accent-color); margin-bottom: 14px; word-break: break-all;" id="drive-user-email">…</div>
 
+                        <label for="device-label-input" class="field-label">Názov tohto zariadenia</label>
+                        <input type="text" id="device-label-input" placeholder="Napr. PC v dielni, Tablet na stavbe" maxlength="40" style="margin-bottom: 14px;" autocomplete="off">
+
                         <button id="drive-backup-btn" class="btn-success" style="width: 100%; padding: 12px; font-size: 15px; margin-bottom: 8px;">📤 Zálohovať teraz</button>
-                        <div id="drive-backup-status" class="settings-section-hint" style="margin-bottom: 16px; text-align: center;">Posledná záloha: nikdy</div>
+                        <div id="drive-backup-status" class="settings-section-hint" style="margin-bottom: 12px; text-align: center;">Posledná záloha: nikdy</div>
+
+                        <button id="drive-restore-btn" class="btn-secondary" style="width: 100%; padding: 12px; font-size: 15px; margin-bottom: 16px;">📥 Obnoviť zo zálohy…</button>
 
                         <button id="drive-logout-btn" class="btn-secondary" style="width: 100%; padding: 12px; font-size: 15px;">Odhlásiť sa</button>
                     </div>
@@ -1190,6 +1307,8 @@
             <button id="ulozit-profil-btn" class="btn-primary">💾 Uložiť zmeny</button>
         </div>
     </div>
+
+    <div id="toast-container"></div>
 
     <div class="bottom-nav">
         <div class="nav-item active" onclick="prepniTab('tab-ponuka', this)"><span>📝</span><span>Ponuka</span></div>
