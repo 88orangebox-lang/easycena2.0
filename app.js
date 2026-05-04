@@ -3147,9 +3147,27 @@ async function driveZalohuj() {
     const btn = document.getElementById('drive-backup-btn');
     const statusEl = document.getElementById('drive-backup-status');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Zálohujem…'; }
-    if (statusEl) statusEl.textContent = 'Prebieha upload do Google Drive…';
+    if (statusEl) statusEl.textContent = 'Kontrolujem cloud…';
 
     try {
+        // 0. Pull-pred-push — má cloud novšie zmeny než my? Ak áno, otvor
+        // konflikt dialog namiesto slepého prepísania (zaviedli sme spolu
+        // s per-typ porovnaním v rámci robustnej detekcie konfliktov).
+        const najnovsi = await _driveNajdiNajnovsiSubor();
+        if (najnovsi) {
+            const cloudData = await _driveStiahniSubor(najnovsi.id);
+            if (cloudData && cloudData._meta) {
+                const { cloudNovsie } = _porovnajMeta(cloudData);
+                if (cloudNovsie) {
+                    if (btn) { btn.disabled = false; btn.textContent = '📤 Zálohovať teraz'; }
+                    if (statusEl) statusEl.textContent = 'V Drive sú novšie zmeny — vyber akciu v dialógu';
+                    _zobrazKonfliktDialog(cloudData);
+                    return;
+                }
+            }
+        }
+        if (statusEl) statusEl.textContent = 'Prebieha upload do Google Drive…';
+
         // 1. Nájdi alebo vytvor priečinok EasyCena_zalohy
         const folderId = await _driveZistiPriecinokId();
 
@@ -3511,6 +3529,24 @@ function _maxModifiedAt(modifiedAt) {
     return vals.length ? Math.max(...vals) : 0;
 }
 
+// Per-typ porovnanie cloud vs lokálne meta. Vráti, ktorá strana má novšie
+// zmeny pre niektorý typ. Používa sa v auto-push, manuálnom push aj pull-on-open.
+//   cloudNovsie  = cloud má pre nejaký typ novšie ako my  → push by ich prepísal
+//   localNovsie  = my máme pre nejaký typ novšie ako cloud → bez push-u sú stratené
+//   oboje true   = konflikt — každá strana zmenila niečo iné
+//   oboje false  = synchronizované, nič netreba robiť
+function _porovnajMeta(cloudData) {
+    const localMA = (_nacitajMeta() || {}).modifiedAt || {};
+    const cloudMA = (cloudData && cloudData._meta && cloudData._meta.modifiedAt) || {};
+    let cloudNovsie = false, localNovsie = false;
+    for (const typ of ['katalog', 'archiv', 'profil']) {
+        const c = cloudMA[typ] || 0, l = localMA[typ] || 0;
+        if (c > l) cloudNovsie = true;
+        if (l > c) localNovsie = true;
+    }
+    return { cloudNovsie, localNovsie };
+}
+
 // Pri prvom otvorení appky stiahne najnovšiu zálohu z Drive a ak má
 // novšie zmeny než lokál, automaticky ich aplikuje (toast + reload).
 // Žiadny dialog na štarte — predpokladáme, že lokál nemá pending zmeny.
@@ -3526,16 +3562,20 @@ async function _skusPullOnOpen() {
         const cloudData = await _driveStiahniSubor(najnovsi.id);
         if (!cloudData || !cloudData._meta) return; // stará záloha bez _meta
 
-        const localMeta = _nacitajMeta();
-        const localMax = _maxModifiedAt(localMeta.modifiedAt);
-        const cloudMax = _maxModifiedAt(cloudData._meta.modifiedAt);
+        const { cloudNovsie, localNovsie } = _porovnajMeta(cloudData);
 
-        if (cloudMax > localMax) {
+        if (cloudNovsie && localNovsie) {
+            // KONFLIKT — každá strana zmenila niečo iné. Bezpečnejšie ako
+            // silent pull, ktorý by lokálne zmeny stratil.
+            _zobrazKonfliktDialog(cloudData);
+        } else if (cloudNovsie) {
+            // Cloud má novšie a my nemáme nič nesynchronizované → silent pull
             _aplikujZalohu(cloudData);
             const odKoho = (cloudData._meta.deviceLabel) ? ('zo zariadenia ' + cloudData._meta.deviceLabel) : 'z cloudu';
             ukazToast('☁️ Stiahnuté novšie zmeny ' + odKoho + ' — reštartujem', 'info', 2000);
             setTimeout(() => location.reload(), 2000);
         }
+        // Inak (localNovsie alebo synchronizované) → nič
     } catch (err) {
         console.warn('Pull on open failed:', err);
     }
@@ -3611,12 +3651,10 @@ async function _spustiAutoPush() {
         }
 
         if (cloudData && cloudData._meta) {
-            const localMeta = _nacitajMeta();
-            const localMax = _maxModifiedAt(localMeta.modifiedAt);
-            const cloudMax = _maxModifiedAt(cloudData._meta.modifiedAt);
-
-            if (cloudMax > localMax) {
-                // KONFLIKT: cloud má novšie aj my máme nesynchronizované zmeny
+            const { cloudNovsie } = _porovnajMeta(cloudData);
+            if (cloudNovsie) {
+                // Cloud má pre niektorý typ novšie zmeny — push by ich prepísal.
+                // Otvorí sa konflikt dialog (Spojiť oboje / Cloud / Lokálne).
                 _zobrazKonfliktDialog(cloudData);
                 _autopushBezi = false;
                 return;
