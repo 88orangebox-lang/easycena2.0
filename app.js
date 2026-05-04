@@ -3023,11 +3023,16 @@ document.addEventListener('DOMContentLoaded', () => {
 // Spracovanie odpovede z Google OAuth popup-u
 function handleDriveAuthResponse(response) {
     if (response.error) {
-        // Silent re-auth zlyhanie (napr. user odvolal povolenie) — tichá ignor
+        // Silent re-auth zlyhanie (Google session expirovala alebo user
+        // odvolal povolenie) — nezobrazujeme alert, len UX nápovedu.
         if (_silentReauthBezi) {
-            console.log('Silent Drive re-auth zlyhalo — treba manuálne prihlásenie');
+            console.log('Silent Drive re-auth zlyhalo:', response.error);
             _silentReauthBezi = false;
             localStorage.removeItem('easycena_drive_token');
+            // Nenápadný hint, že treba manuálne prihlásenie (1× za session).
+            if (typeof ukazToast === 'function') {
+                ukazToast('🔒 Drive prihlásenie vypršalo — klikni "Prihlásiť sa" v Nastaveniach', 'info', 5000);
+            }
             return;
         }
         console.error('Drive auth error:', response);
@@ -3526,7 +3531,9 @@ function _skusSilentDriveReauth() {
     }
     _silentReauthBezi = true;
     try {
-        driveTokenClient.requestAccessToken({ prompt: '' });
+        // 'none' = žiadne UI; ak Google nemôže obnoviť ticho, vráti error,
+        // čo zachytí handleDriveAuthResponse() a ukáže toast s výzvou.
+        driveTokenClient.requestAccessToken({ prompt: 'none' });
     } catch (e) {
         _silentReauthBezi = false;
         console.warn('Silent reauth throw:', e);
@@ -3588,8 +3595,14 @@ async function _driveStiahniSubor(fileId) {
 }
 
 // === AUTO-PUSH ===
-const AUTOPUSH_DEBOUNCE_MS = 30 * 1000;       // 30s ticha = upload
-const AUTOPUSH_MAX_WAIT_MS = 5 * 60 * 1000;   // 5min poistka aj pri trvalej činnosti
+// Tieto hodnoty sú zladené s 1-používateľským workflow:
+// po normálnej práci (uloženie ponuky / pridanie položky) sa záloha
+// vytvorí až keď je 10 minút ticho — predíde sa zbytočným uploadom
+// pri viacerých rýchlych zmenách za sebou. Max-wait 1h chráni pred
+// uviaznutím pri nepretržitej činnosti. Pre okamžitú zálohu je manuálne
+// tlačidlo "Zálohovať teraz" v Nastaveniach.
+const AUTOPUSH_DEBOUNCE_MS = 10 * 60 * 1000;  // 10 min ticha = upload
+const AUTOPUSH_MAX_WAIT_MS = 60 * 60 * 1000;  // 1h poistka pri trvalej činnosti
 let _autopushDebounceTimer = null;
 let _autopushMaxWaitTimer = null;
 let _autopushPending = false;
