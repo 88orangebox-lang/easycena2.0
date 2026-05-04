@@ -3014,8 +3014,19 @@ document.addEventListener('DOMContentLoaded', () => {
             scope: GOOGLE_DRIVE_SCOPE,
             callback: handleDriveAuthResponse
         });
-        // Po init SDK skúsime silent re-auth (alebo pull-on-open ak token je platný)
-        if (typeof _skusSilentDriveReauth === 'function') _skusSilentDriveReauth();
+        // Po init SDK: ak je platný token → pull-on-open. Ak nie je ale email
+        // je uložený → upozorni užívateľa, nech sa prihlási. Automatický
+        // silent re-auth pri starte sa nedá — prehliadač blokuje popup,
+        // ktorý Google fallback-uje cez prompt:'none' (popup blocker pre
+        // skripty bez user gesture). Riešenie ide cez manuálny klik.
+        if (driveAccessToken) {
+            if (typeof _skusPullOnOpen === 'function') _skusPullOnOpen();
+        } else if (localStorage.getItem('easycena_drive_email')) {
+            // Token expiroval, ale kedysi bol prihlásený
+            if (typeof ukazToast === 'function') {
+                ukazToast('🔒 Drive prihlásenie vypršalo — klikni "Prihlásiť sa" v Nastaveniach', 'info', 6000);
+            }
+        }
     }
     tryInitGoogleSdk();
 });
@@ -3023,23 +3034,10 @@ document.addEventListener('DOMContentLoaded', () => {
 // Spracovanie odpovede z Google OAuth popup-u
 function handleDriveAuthResponse(response) {
     if (response.error) {
-        // Silent re-auth zlyhanie (Google session expirovala alebo user
-        // odvolal povolenie) — nezobrazujeme alert, len UX nápovedu.
-        if (_silentReauthBezi) {
-            console.log('Silent Drive re-auth zlyhalo:', response.error);
-            _silentReauthBezi = false;
-            localStorage.removeItem('easycena_drive_token');
-            // Nenápadný hint, že treba manuálne prihlásenie (1× za session).
-            if (typeof ukazToast === 'function') {
-                ukazToast('🔒 Drive prihlásenie vypršalo — klikni "Prihlásiť sa" v Nastaveniach', 'info', 5000);
-            }
-            return;
-        }
         console.error('Drive auth error:', response);
         alert('Prihlásenie do Google Drive zlyhalo:\n' + (response.error_description || response.error));
         return;
     }
-    _silentReauthBezi = false;
     driveAccessToken = response.access_token;
     const expiresAt = Date.now() + ((response.expires_in || 3600) * 1000);
     localStorage.setItem('easycena_drive_token', JSON.stringify({
@@ -3504,7 +3502,6 @@ function _renderZoznamZaloh(overlay, subory) {
 // SILENT RE-AUTH + PULL ON OPEN + AUTO-PUSH (Commit 3.3)
 // =====================================================
 
-let _silentReauthBezi = false;
 let _pullOnOpenSpustenyRaz = false;
 
 // Helper: max timestamp z _meta.modifiedAt objektu
@@ -3512,32 +3509,6 @@ function _maxModifiedAt(modifiedAt) {
     if (!modifiedAt) return 0;
     const vals = Object.values(modifiedAt).filter(v => typeof v === 'number');
     return vals.length ? Math.max(...vals) : 0;
-}
-
-// Pri starte appky — ak token expiroval ale máme uložený email,
-// skúsi tichú obnovu prihlásenia. Ak Google odmietne (user odvolal
-// povolenie), ostane neprihlásený.
-function _skusSilentDriveReauth() {
-    if (driveAccessToken) {
-        // Token je stále platný (z localStorage) → rovno pull
-        _skusPullOnOpen();
-        return;
-    }
-    const email = localStorage.getItem('easycena_drive_email');
-    if (!email) return; // Užívateľ sa nikdy neprihlásil
-    if (!driveTokenClient) {
-        setTimeout(_skusSilentDriveReauth, 300);
-        return;
-    }
-    _silentReauthBezi = true;
-    try {
-        // 'none' = žiadne UI; ak Google nemôže obnoviť ticho, vráti error,
-        // čo zachytí handleDriveAuthResponse() a ukáže toast s výzvou.
-        driveTokenClient.requestAccessToken({ prompt: 'none' });
-    } catch (e) {
-        _silentReauthBezi = false;
-        console.warn('Silent reauth throw:', e);
-    }
 }
 
 // Pri prvom otvorení appky stiahne najnovšiu zálohu z Drive a ak má
