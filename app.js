@@ -3729,7 +3729,7 @@ function _zobrazKonfliktDialog(cloudData) {
             </div>
             <button type="button" class="sync-option ${defaultVoluba === 'merge' ? 'recommended' : ''}" data-action="merge">
                 <div class="sync-option-title">🔄 Spojiť oboje${defaultVoluba === 'merge' ? ' (odporúčané)' : ''}</div>
-                <div class="sync-option-desc">Zachová ponuky z oboch zariadení. Pri zhodnom ID vyhrá novšia. Katalóg a profil = novšia verzia.</div>
+                <div class="sync-option-desc">Zachová ponuky aj položky katalógu z oboch zariadení (žiadna sa nestratí). Pri zhodnom názve položky vyhrá novšia verzia. Profil = novšia verzia.</div>
             </button>
             <button type="button" class="sync-option ${defaultVoluba === 'cloud' ? 'recommended' : ''}" data-action="cloud">
                 <div class="sync-option-title">☁️ Stiahnuť cloud verziu${defaultVoluba === 'cloud' ? ' (odporúčané)' : ''}</div>
@@ -3818,9 +3818,10 @@ function _zlucData(cloudData) {
 
     const merged = { ...local };
 
-    // Katalog: meta-level — novšia verzia vyhráva
+    // Katalog: per-record union cez identifikátor (kategória+názov+mj alebo balik|názov).
+    // Pri konflikte rovnakého id vyhrá strana s novším _meta.modifiedAt.katalog.
     const lkat = localMA.katalog || 0, ckat = cloudMA.katalog || 0;
-    if (ckat > lkat) merged.katalog = cloudData.katalog || [];
+    merged.katalog = _zlucKatalog(local.katalog || [], cloudData.katalog || [], lkat, ckat);
 
     // Profil: meta-level (logo + podpis idú spolu)
     const lpro = localMA.profil || 0, cpro = cloudMA.profil || 0;
@@ -3866,6 +3867,32 @@ function _zlucArchiv(localArr, cloudArr, localFallback, cloudFallback) {
     });
     // Zoradenie podľa id desc (chronologicky najnovšie hore — ako v existujúcom UI)
     return Array.from(map.values()).map(x => x.ponuka).sort((a, b) => (b.id || 0) - (a.id || 0));
+}
+
+// Stable identifikátor položky katalógu pre merge účely.
+// Položka: kategória + názov + merná jednotka (zmena ktoréhokoľvek = "iná položka").
+// Balíček:  názov.
+function _idKatalogPolozky(p) {
+    if (!p) return '';
+    if (p.typ === 'balik') return 'balik|' + (p.nazov || '');
+    return 'polozka|' + (p.kategoria || 'material') + '|' + (p.nazov || '') + '|' + (p.mj || '');
+}
+
+// Per-record union katalógu cez stable identifikátor.
+// - Položky existujúce len v jednom poli sa zachovajú (žiadna sa nestratí).
+// - Pri zhodnom id (rovnaký kategória+názov+mj) vyhrá strana s vyšším
+//   _meta.modifiedAt.katalog (novšie data majú prednosť).
+function _zlucKatalog(localArr, cloudArr, localCas, cloudCas) {
+    const map = new Map();
+    // Vlož staršiu stranu prvú, novšiu druhú — Map.set prepíše hodnotu pri zhode.
+    if (localCas >= cloudCas) {
+        cloudArr.forEach(p => map.set(_idKatalogPolozky(p), p));
+        localArr.forEach(p => map.set(_idKatalogPolozky(p), p));
+    } else {
+        localArr.forEach(p => map.set(_idKatalogPolozky(p), p));
+        cloudArr.forEach(p => map.set(_idKatalogPolozky(p), p));
+    }
+    return Array.from(map.values());
 }
 
 function _escapeHtml(s) {
