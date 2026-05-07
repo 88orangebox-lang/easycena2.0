@@ -3124,10 +3124,12 @@ function aktualizujDriveUI() {
                 : '✅ Prihlásený do Google Drive';
         }
         aktualizujDriveZalohaStatus();
+        if (typeof aktualizujCloudStatus === 'function') aktualizujCloudStatus('ok');
     } else {
         notLoggedIn.style.display = 'block';
         loggedIn.style.display = 'none';
         if (accSub) accSub.textContent = 'Prihlás sa pre automatickú zálohu dát';
+        if (typeof aktualizujCloudStatus === 'function') aktualizujCloudStatus('logged-out');
     }
 }
 
@@ -3148,6 +3150,7 @@ async function driveZalohuj() {
     const statusEl = document.getElementById('drive-backup-status');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Zálohujem…'; }
     if (statusEl) statusEl.textContent = 'Kontrolujem cloud…';
+    aktualizujCloudStatus('pushing');
 
     try {
         // 0. Pull-pred-push — zmenil sa cloud od posledného sync-u? Ak áno,
@@ -3160,6 +3163,7 @@ async function driveZalohuj() {
                 if (cmp.cloudZmenaOdSync) {
                     if (btn) { btn.disabled = false; btn.textContent = '📤 Zálohovať teraz'; }
                     if (statusEl) statusEl.textContent = 'V Drive sú novšie zmeny — vyber akciu v dialógu';
+                    aktualizujCloudStatus('pending');
                     _zobrazKonfliktDialog(cloudData);
                     return;
                 }
@@ -3189,12 +3193,16 @@ async function driveZalohuj() {
 
         if (btn) { btn.disabled = false; btn.textContent = '📤 Zálohovať teraz'; }
         aktualizujDriveZalohaStatus();
+        aktualizujCloudStatus('ok');
         if (statusEl) statusEl.textContent = '✅ Zálohované práve teraz';
         if (typeof ukazToast === 'function') ukazToast('☁️ Zálohované do Google Drive', 'success');
+        // Auto-cleanup starých záloh (na pozadí, ignoruje failures)
+        _driveVycistiStareZalohy();
     } catch (err) {
         console.error('Drive zaloha failed:', err);
         if (btn) { btn.disabled = false; btn.textContent = '📤 Zálohovať teraz'; }
         if (statusEl) statusEl.textContent = '❌ Chyba: ' + (err.message || 'záloha zlyhala');
+        aktualizujCloudStatus('error');
         // Pri 401 (token expiroval) ponúkneme znovuprihlásenie
         if (err && err.status === 401) {
             if (confirm('Prihlásenie do Google Drive vypršalo. Chceš sa znova prihlásiť?')) {
@@ -3398,6 +3406,90 @@ function oznacZmeneny(typ) {
 }
 
 // =====================================================
+// CLOUD STATUS INDIKÁTOR (hero rohu vedľa autosave-status)
+// =====================================================
+// Stavy: 'ok' | 'pending' | 'pushing' | 'pulling' | 'error' | 'logged-out'
+function aktualizujCloudStatus(stav) {
+    const el = document.getElementById('cloud-status');
+    if (!el) return;
+    el.classList.remove('ok', 'pending', 'busy', 'error', 'logged-out');
+    if (stav === 'pushing') {
+        el.textContent = '☁️ ↑';
+        el.title = 'Synchronizujem do Drive…';
+        el.classList.add('busy');
+    } else if (stav === 'pulling') {
+        el.textContent = '☁️ ↓';
+        el.title = 'Sťahujem novšie zmeny z Drive…';
+        el.classList.add('busy');
+    } else if (stav === 'pending') {
+        el.textContent = '☁️ ⏳';
+        el.title = 'Auto-záloha sa pripravuje (do 10 min). Klikni pre Nastavenia.';
+        el.classList.add('pending');
+    } else if (stav === 'error') {
+        el.textContent = '☁️ ⚠️';
+        el.title = 'Chyba synchronizácie. Klikni pre Nastavenia.';
+        el.classList.add('error');
+    } else if (stav === 'ok') {
+        el.textContent = '☁️ ✓';
+        const lastBackup = localStorage.getItem('easycena_drive_last_backup');
+        if (lastBackup) {
+            const dt = new Date(parseInt(lastBackup, 10));
+            const pad = n => String(n).padStart(2, '0');
+            el.title = `Synchronizované — naposledy ${pad(dt.getDate())}.${pad(dt.getMonth() + 1)}. ${pad(dt.getHours())}:${pad(dt.getMinutes())}. Klikni pre Nastavenia.`;
+        } else {
+            el.title = 'Synchronizované s Drive. Klikni pre Nastavenia.';
+        }
+        el.classList.add('ok');
+    } else {
+        el.textContent = '';
+        el.classList.add('logged-out');
+    }
+}
+
+// Klik na cloud status → otvor Nastavenia + Cloud accordion
+document.addEventListener('DOMContentLoaded', () => {
+    const el = document.getElementById('cloud-status');
+    if (!el) return;
+    el.addEventListener('click', () => {
+        const navItems = document.querySelectorAll('.bottom-nav .nav-item');
+        const settingsTab = navItems[navItems.length - 1];
+        if (settingsTab) settingsTab.click();
+        // Otvor Cloud accordion (6. položka — má id drive-acc-sub)
+        setTimeout(() => {
+            const cloudAcc = document.getElementById('drive-acc-sub')
+                ? document.getElementById('drive-acc-sub').closest('.acc-item')
+                : null;
+            if (cloudAcc && !cloudAcc.classList.contains('open')) {
+                document.querySelectorAll('.acc-item[data-acc]').forEach(i => i.classList.remove('open'));
+                cloudAcc.classList.add('open');
+                cloudAcc.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 200);
+    });
+});
+
+// =====================================================
+// SMART RELOAD — re-render UI bez full reloadu po pull/merge
+// =====================================================
+// Volá sa po _aplikujZalohu() namiesto location.reload(). Zachová
+// rozrobenú ponuku, scroll, otvorené tabs.
+function _aktualizujUiPoSync() {
+    try {
+        katalog = JSON.parse(localStorage.getItem('easycena_katalog')) || [];
+        archiv  = JSON.parse(localStorage.getItem('easycena_archiv'))  || [];
+        if (typeof nacitajProfil === 'function')        nacitajProfil();
+        if (typeof vykresliKatalog === 'function')      vykresliKatalog();
+        if (typeof vykresliArchiv === 'function')       vykresliArchiv();
+        if (typeof vykresliZoznamZnaciek === 'function') vykresliZoznamZnaciek();
+        if (typeof prepocitajSumy === 'function')       prepocitajSumy();
+    } catch (e) {
+        console.error('UI refresh after sync failed:', e);
+        // Fallback na full reload ak refresh zlyhá
+        location.reload();
+    }
+}
+
+// =====================================================
 // MANUÁLNA OBNOVA ZO DRIVE (Commit 3.2)
 // =====================================================
 
@@ -3574,28 +3666,34 @@ async function _skusPullOnOpen() {
     if (!driveAccessToken) return;
 
     try {
+        aktualizujCloudStatus('pulling');
         const najnovsi = await _driveNajdiNajnovsiSubor();
-        if (!najnovsi) return;
+        if (!najnovsi) { aktualizujCloudStatus('ok'); return; }
 
         const cloudData = await _driveStiahniSubor(najnovsi.id);
-        if (!cloudData || !cloudData._meta) return; // stará záloha bez _meta
+        if (!cloudData || !cloudData._meta) { aktualizujCloudStatus('ok'); return; }
 
         const cmp = _porovnajMeta(cloudData);
 
         if (cmp.cloudZmenaOdSync && cmp.localZmenaOdSync) {
             // KONFLIKT — obe strany sa zmenili od posledného sync-u.
+            aktualizujCloudStatus('pending');
             _zobrazKonfliktDialog(cloudData);
         } else if (cmp.cloudZmenaOdSync) {
-            // Cloud sa zmenil, lokál nie → silent pull
+            // Cloud sa zmenil, lokál nie → silent pull + soft reload UI
             _aplikujZalohu(cloudData);
             _ulozLastSync(cmp.cloudMax);
             const odKoho = (cloudData._meta.deviceLabel) ? ('zo zariadenia ' + cloudData._meta.deviceLabel) : 'z cloudu';
-            ukazToast('☁️ Stiahnuté novšie zmeny ' + odKoho + ' — reštartujem', 'info', 2000);
-            setTimeout(() => location.reload(), 2000);
+            // Smart reload: re-render UI bez stratiti rozrobenej ponuky/scrollu
+            _aktualizujUiPoSync();
+            ukazToast('☁️ Stiahnuté novšie zmeny ' + odKoho, 'info', 3000);
+            aktualizujCloudStatus('ok');
+        } else {
+            aktualizujCloudStatus('ok');
         }
-        // Inak (len lokál sa zmenil alebo nič) → nič
     } catch (err) {
         console.warn('Pull on open failed:', err);
+        aktualizujCloudStatus('error');
     }
 }
 
@@ -3623,6 +3721,34 @@ async function _driveStiahniSubor(fileId) {
     return await resp.json();
 }
 
+// Auto-cleanup starých záloh v Drive priečinku — volá sa po každom úspešnom push.
+// Zachová posledných `keepCount` súborov, zvyšok zmaže (presunie do trash).
+// Failsafe: pri chybe len zaloguje a tiché vráti — nikdy nezhodí push flow.
+async function _driveVycistiStareZalohy(keepCount = 20) {
+    if (!driveAccessToken) return;
+    try {
+        const folderId = await _driveZistiPriecinokId();
+        const q = `'${folderId}' in parents and trashed=false and mimeType='application/json'`;
+        const url = `${DRIVE_API_BASE}/files?q=${encodeURIComponent(q)}&fields=files(id,modifiedTime)&orderBy=modifiedTime desc&pageSize=200`;
+        const resp = await fetch(url, { headers: { Authorization: 'Bearer ' + driveAccessToken } });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const files = data.files || [];
+        if (files.length <= keepCount) return;
+        const naMazanie = files.slice(keepCount);
+        // Mažeme paralelne, ale ignorujeme zlyhania jednotlivých súborov
+        await Promise.allSettled(naMazanie.map(f =>
+            fetch(`${DRIVE_API_BASE}/files/${f.id}`, {
+                method: 'DELETE',
+                headers: { Authorization: 'Bearer ' + driveAccessToken }
+            })
+        ));
+        console.log(`Drive cleanup: zmazaných ${naMazanie.length} starých záloh, ponechaných ${keepCount}.`);
+    } catch (err) {
+        console.warn('Drive cleanup failed (ignorované):', err);
+    }
+}
+
 // === AUTO-PUSH ===
 // Tieto hodnoty sú zladené s 1-používateľským workflow:
 // po normálnej práci (uloženie ponuky / pridanie položky) sa záloha
@@ -3637,7 +3763,7 @@ let _autopushMaxWaitTimer = null;
 let _autopushPending = false;
 let _autopushBezi = false;
 
-// Volaná z oznacZmeneny() — naštartuje 30s debounce timer.
+// Volaná z oznacZmeneny() — naštartuje debounce timer.
 function _naplanujAutoPush() {
     if (!driveAccessToken) return; // neprihlásený
     _autopushPending = true;
@@ -3646,6 +3772,7 @@ function _naplanujAutoPush() {
     if (!_autopushMaxWaitTimer) {
         _autopushMaxWaitTimer = setTimeout(_spustiAutoPush, AUTOPUSH_MAX_WAIT_MS);
     }
+    aktualizujCloudStatus('pending');
 }
 
 // Spustí sa keď debounce alebo max-wait timer vyprší.
@@ -3659,6 +3786,7 @@ async function _spustiAutoPush() {
     if (_autopushBezi) return;
     _autopushBezi = true;
     _autopushPending = false;
+    aktualizujCloudStatus('pushing');
 
     try {
         // 1. Najprv pull — má cloud novšie zmeny než my máme známe?
@@ -3672,6 +3800,7 @@ async function _spustiAutoPush() {
             const cmp = _porovnajMeta(cloudData);
             if (cmp.cloudZmenaOdSync) {
                 // Cloud sa zmenil od posledného sync-u — push by ho prepísal.
+                aktualizujCloudStatus('pending');
                 _zobrazKonfliktDialog(cloudData);
                 _autopushBezi = false;
                 return;
@@ -3688,9 +3817,13 @@ async function _spustiAutoPush() {
         _ulozLastSync(localMaxPredPush);
         localStorage.setItem('easycena_drive_last_backup', String(Date.now()));
         aktualizujDriveZalohaStatus();
+        aktualizujCloudStatus('ok');
         ukazToast('☁️ Synchronizované', 'success', 2000);
+        // Auto-cleanup na pozadí (ignoruje failures)
+        _driveVycistiStareZalohy();
     } catch (err) {
         console.warn('Auto-push failed:', err);
+        aktualizujCloudStatus('error');
         ukazToast('⚠️ Auto-záloha zlyhala — skús neskôr cez "Zálohovať teraz"', 'error', 4000);
         // Pri 401 nech sa pri ďalšom pokuse riešia tokeny — silent reauth pri ďalšom load-e
     } finally {
@@ -3766,8 +3899,10 @@ async function _vyriesKonflikt(action, cloudData, overlay) {
             localStorage.setItem('easycena_drive_last_backup', String(Date.now()));
             _ulozLastSync(localMaxPredPush);
             aktualizujDriveZalohaStatus();
+            aktualizujCloudStatus('ok');
             _zatvorModal(overlay);
             ukazToast('☁️ Lokálne zmeny pushnuté do cloudu', 'success');
+            _driveVycistiStareZalohy();
             return;
         }
 
@@ -3788,10 +3923,12 @@ async function _vyriesKonflikt(action, cloudData, overlay) {
         await _driveUploadJsonSubor(folderId, filename, novyJson);
         localStorage.setItem('easycena_drive_last_backup', String(Date.now()));
         _ulozLastSync(localMaxPoApply);
+        aktualizujCloudStatus('ok');
 
         _zatvorModal(overlay);
         const txt = action === 'merge' ? '☁️ Zlúčené — reštartujem' : '☁️ Stiahnuté z cloudu — reštartujem';
         ukazToast(txt, 'success', 1500);
+        _driveVycistiStareZalohy();
         setTimeout(() => location.reload(), 1500);
     } catch (err) {
         console.error('Konflikt resolution failed:', err);

@@ -176,6 +176,28 @@
             background: color-mix(in srgb, var(--success-btn-bg-color) 25%, transparent);
             color: var(--text-color);
         }
+        /* Cloud status indikátor — vedľa autosave-status */
+        .cloud-status {
+            font-size: 12px;
+            color: var(--text-muted-color);
+            white-space: nowrap;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: color-mix(in srgb, var(--text-muted-color) 8%, transparent);
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+            user-select: none;
+        }
+        .cloud-status:hover { background: color-mix(in srgb, var(--accent-color) 15%, transparent); }
+        .cloud-status.ok      { color: var(--success-btn-bg-color); }
+        .cloud-status.busy    { animation: cloud-pulse 1.5s ease-in-out infinite; color: var(--accent-color); }
+        .cloud-status.pending { color: var(--accent-color); }
+        .cloud-status.error   { color: var(--danger-btn-bg-color); }
+        .cloud-status.logged-out { display: none; }
+        @keyframes cloud-pulse {
+            0%, 100% { opacity: 0.55; }
+            50%      { opacity: 1; }
+        }
         .hero-theme-btn {
             background: transparent;
             border: 1px solid var(--input-border-color);
@@ -758,6 +780,7 @@
             <h1 id="ponuka-titulok" class="ponuka-titulok">Úprava ponuky <span class="hero-emoji">🖊️</span></h1>
             <div class="hero-controls">
                 <span id="autosave-status" class="autosave-status" title="Stav automatického ukladania">💾 Uložené</span>
+                <span id="cloud-status" class="cloud-status logged-out" title="Cloud záloha — kliknite pre Nastavenia"></span>
                 <button type="button" id="theme-quick-toggle" class="hero-theme-btn" aria-label="Prepnúť tmavý / svetlý režim">🌙</button>
             </div>
         </div>
