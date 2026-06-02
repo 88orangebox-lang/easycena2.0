@@ -72,6 +72,10 @@ function ulozRozpracovanuPonuku() {
     const data = {
         rezimSupisPrac: window.jeRezimSupis || false, // NOVÉ: pamätá si režim súpisu
         cislo: document.getElementById('cislo-ponuky').value,
+        // Väzba súpisu prác (typ + číslo + vlastný text) — viď _supisPodnadpis()
+        supisVazbaTyp:    document.getElementById('supis-vazba-typ')    ? document.getElementById('supis-vazba-typ').value    : 'cp',
+        supisVazbaCislo:  document.getElementById('supis-vazba-cislo')  ? document.getElementById('supis-vazba-cislo').value  : '',
+        supisVazbaCustom: document.getElementById('supis-vazba-custom') ? document.getElementById('supis-vazba-custom').value : '',
         meno: document.getElementById('meno-zakaznika').value,
         ulica: document.getElementById('ulica-zakaznika').value,
         mesto: document.getElementById('mesto-zakaznika').value,
@@ -172,10 +176,50 @@ function aktualizujThemeIkonu() {
     });
 })();
 
+// =====================================================
+// VÄZBA SÚPISU PRÁC (typ + číslo + vlastný text)
+// =====================================================
+// Vráti čisté číslo cenovej ponuky (odstráni "Cenová ponuka č." prefix).
+function _cisteCisloCP(cislo) {
+    return String(cislo || '').replace(/Cenová ponuka č\.\s*/ig, '').replace(/Cenová ponuka\s*/ig, '').trim();
+}
+// Textový prefix väzby súpisu podľa typu. Pri 'ine' vráti vlastný text.
+function _supisVazbaLabel(typ, custom) {
+    if (typ === 'zakazka') return 'k zákazke č.';
+    if (typ === 'faktura') return 'k faktúre č.';
+    if (typ === 'ine')     return (custom || '').trim() || 'k';
+    return 'k cenovej ponuke č.';
+}
+// Poskladá celý podnadpis: "k zákazke č. Z2026001" (bez čísla ak je prázdne).
+function _supisPodnadpis(typ, cislo, custom) {
+    const label = _supisVazbaLabel(typ, custom);
+    const c = (cislo || '').trim();
+    return c ? (label + ' ' + c) : label;
+}
+
 function obnovRozpracovanuPonuku() {
     const data = JSON.parse(localStorage.getItem('easycena_rozpracovana'));
     if (data) {
         window.jeRezimSupis = data.rezimSupisPrac || false;
+
+        // --- NORMALIZÁCIA VÄZBY (spätná kompatibilita so starými súpismi) ---
+        // Staré súpisy bez týchto polí: typ = cenová ponuka, číslo = číslo CP.
+        if (data.supisVazbaTyp === undefined)    data.supisVazbaTyp = 'cp';
+        if (data.supisVazbaCislo === undefined)  data.supisVazbaCislo = _cisteCisloCP(data.cislo);
+        if (data.supisVazbaCustom === undefined) data.supisVazbaCustom = '';
+
+        // --- VÄZBA SÚPISU: zobraz box + naplň polia (len v režime súpisu) ---
+        const vazbaBox    = document.getElementById('supis-vazba-box');
+        const vazbaTyp    = document.getElementById('supis-vazba-typ');
+        const vazbaCislo  = document.getElementById('supis-vazba-cislo');
+        const vazbaCustom = document.getElementById('supis-vazba-custom');
+        if (vazbaBox)   vazbaBox.style.display = window.jeRezimSupis ? 'block' : 'none';
+        if (vazbaTyp)   vazbaTyp.value = data.supisVazbaTyp;
+        if (vazbaCislo) vazbaCislo.value = data.supisVazbaCislo;
+        if (vazbaCustom) {
+            vazbaCustom.value = data.supisVazbaCustom;
+            vazbaCustom.style.display = (data.supisVazbaTyp === 'ine') ? 'block' : 'none';
+        }
 
         // --- BANNER PRE SÚPIS PRÁC ---
         let banner = document.getElementById('supis-banner');
@@ -194,7 +238,7 @@ function obnovRozpracovanuPonuku() {
                 const tabPonuka = document.getElementById('tab-ponuka');
                 tabPonuka.insertBefore(banner, tabPonuka.firstChild);
             }
-            banner.innerText = '⚠️ REŽIM: SÚPIS PRÁC K PONUKE Č. ' + (data.cislo || 'Neznáme');
+            banner.innerText = '⚠️ REŽIM: SÚPIS PRÁC ' + _supisPodnadpis(data.supisVazbaTyp, data.supisVazbaCislo, data.supisVazbaCustom);
             banner.style.display = 'block';
         } else if (banner) {
             banner.style.display = 'none';
@@ -1664,6 +1708,16 @@ function vytvorSupisPrac(id) {
         let supisData = JSON.parse(JSON.stringify(ponuka));
         supisData.rezimSupisPrac = true;
 
+        // --- VÄZBA SÚPISU: prevezmi predvoľbu z profilu ---
+        const profilV = JSON.parse(localStorage.getItem('easycena_profil')) || {};
+        supisData.supisVazbaTyp    = profilV.supisVazbaTyp || 'cp';
+        supisData.supisVazbaCustom = profilV.supisVazbaCustom || '';
+        // Pri väzbe na cenovú ponuku predvyplň číslo z CP; inak nechaj prázdne
+        // na manuálne zadanie (appka nepozná číslo zákazky/faktúry).
+        supisData.supisVazbaCislo  = (supisData.supisVazbaTyp === 'cp')
+            ? _cisteCisloCP(ponuka.cislo)
+            : '';
+
         // --- NOVÉ: INJEKCIA ZÁMKU PRE STARÉ POLOŽKY A ZĽAVY ---
         if (supisData.polozky) {
             supisData.polozky.forEach(p => {
@@ -1785,6 +1839,33 @@ document.getElementById('som-platca-dph').addEventListener('change', function() 
     prepocitajSumy();
 });
 
+// --- VÄZBA SÚPISU: profil select → zobraz/skry pole pre vlastný text ---
+(function () {
+    const pv = document.getElementById('profil-supis-vazba');
+    const pvc = document.getElementById('profil-supis-vazba-custom');
+    if (pv && pvc) {
+        pv.addEventListener('change', function () {
+            pvc.style.display = (this.value === 'ine') ? 'block' : 'none';
+        });
+    }
+})();
+
+// --- VÄZBA SÚPISU: hlavička ponuky — typ väzby ---
+(function () {
+    const typ = document.getElementById('supis-vazba-typ');
+    if (!typ) return;
+    typ.addEventListener('change', function () {
+        const custom = document.getElementById('supis-vazba-custom');
+        const cislo  = document.getElementById('supis-vazba-cislo');
+        if (custom) custom.style.display = (this.value === 'ine') ? 'block' : 'none';
+        // Pri väzbe na cenovú ponuku predvyplň číslo z čísla ponuky (ak je prázdne)
+        if (this.value === 'cp' && cislo && !cislo.value.trim()) {
+            cislo.value = _cisteCisloCP(document.getElementById('cislo-ponuky').value);
+        }
+        ulozRozpracovanuPonuku();
+    });
+})();
+
 document.getElementById('ulozit-profil-btn').addEventListener('click', () => {
     const profil = {
         firma: document.getElementById('moja-firma').value,
@@ -1803,7 +1884,9 @@ document.getElementById('ulozit-profil-btn').addEventListener('click', () => {
         zapisRegister: document.getElementById('profil-zapis-register').value,
         poznamka1: document.getElementById('profil-poznamka-1').value,
         informacia2: document.getElementById('profil-informacia-2').value,
-        textPodpisu: document.getElementById('profil-text-podpisu').value
+        textPodpisu: document.getElementById('profil-text-podpisu').value,
+        supisVazbaTyp: document.getElementById('profil-supis-vazba').value,
+        supisVazbaCustom: document.getElementById('profil-supis-vazba-custom').value
     };
     localStorage.setItem('easycena_profil', JSON.stringify(profil));
     if (typeof oznacZmeneny === 'function') oznacZmeneny('profil');
@@ -1841,6 +1924,15 @@ function nacitajProfil() {
         document.getElementById('profil-poznamka-1').value = profil.poznamka1 || '';
         document.getElementById('profil-informacia-2').value = profil.informacia2 || '';
         document.getElementById('profil-text-podpisu').value = profil.textPodpisu || '';
+        const pv  = document.getElementById('profil-supis-vazba');
+        const pvc = document.getElementById('profil-supis-vazba-custom');
+        if (pv) {
+            pv.value = profil.supisVazbaTyp || 'cp';
+            if (pvc) {
+                pvc.value = profil.supisVazbaCustom || '';
+                pvc.style.display = (pv.value === 'ine') ? 'block' : 'none';
+            }
+        }
     }
     
     let aktualnyRok = new Date().getFullYear();
@@ -2038,15 +2130,22 @@ async function vygenerujPDF(akcia) {
     doc.text(hlavnyNadpis, 190, 18, { align: "right" });
     doc.setFont("Roboto", "normal");
     
-    if(cislo) { 
-        doc.setFontSize(13); 
-        doc.setTextColor(120, 120, 120); 
-        
-        // --- NOVÉ: Očistenie čísla od duplicitných slov ---
-        let cisteCislo = cislo.replace(/Cenová ponuka č\.\s*/ig, '').replace(/Cenová ponuka\s*/ig, '').trim();
-        
-        const podnadpis = window.jeRezimSupis ? `k cenovej ponuke č. ${cisteCislo}` : cislo;
-        doc.text(podnadpis, 190, 25, { align: "right" }); 
+    // Podnadpis pod hlavným nadpisom:
+    //  - Súpis prác: skladá sa z väzby (typ + číslo + vlastný text) z hlavičky
+    //  - Cenová ponuka: číslo ponuky tak ako je
+    let podnadpis = '';
+    if (window.jeRezimSupis) {
+        const vTyp    = document.getElementById('supis-vazba-typ')    ? document.getElementById('supis-vazba-typ').value    : 'cp';
+        const vCislo  = document.getElementById('supis-vazba-cislo')  ? document.getElementById('supis-vazba-cislo').value  : '';
+        const vCustom = document.getElementById('supis-vazba-custom') ? document.getElementById('supis-vazba-custom').value : '';
+        podnadpis = _supisPodnadpis(vTyp, vCislo, vCustom);
+    } else {
+        podnadpis = cislo;
+    }
+    if (podnadpis) {
+        doc.setFontSize(13);
+        doc.setTextColor(120, 120, 120);
+        doc.text(podnadpis, 190, 25, { align: "right" });
     }
 
     y = 40; // Základný posun

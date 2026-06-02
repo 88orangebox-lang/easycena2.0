@@ -812,6 +812,22 @@
         <div class="card" data-section="klient">
             <h3 class="section-label">Údaje o klientovi</h3>
             <input type="text" id="cislo-ponuky" placeholder="Číslo ponuky (napr. CP-2026-001)" aria-label="Číslo ponuky">
+
+            <!-- Väzba súpisu prác — viditeľné LEN v režime Súpis prác -->
+            <div id="supis-vazba-box" style="display: none; padding: 10px 12px; margin-bottom: 12px; border: 1px solid var(--accent-color); border-radius: 6px; background: color-mix(in srgb, var(--accent-color) 6%, transparent);">
+                <label for="supis-vazba-typ" class="field-label" style="margin-bottom: 6px;">Súpis prác viazaný na</label>
+                <div class="flex-row" style="margin-bottom: 0;">
+                    <select id="supis-vazba-typ" style="flex: 2; margin-bottom: 0;">
+                        <option value="cp">k cenovej ponuke č.</option>
+                        <option value="zakazka">k zákazke č.</option>
+                        <option value="faktura">k faktúre č.</option>
+                        <option value="ine">vlastný text…</option>
+                    </select>
+                    <input type="text" id="supis-vazba-cislo" placeholder="Číslo" style="flex: 1; margin-bottom: 0;" aria-label="Číslo väzby súpisu">
+                </div>
+                <input type="text" id="supis-vazba-custom" placeholder="Napr. k objednávke č." style="display: none; margin-top: 8px; margin-bottom: 0;" aria-label="Vlastný text väzby">
+            </div>
+
             <input type="text" id="meno-zakaznika" placeholder="Meno / Názov firmy" aria-label="Meno alebo názov firmy">
             <input type="text" id="ulica-zakaznika" placeholder="Ulica a číslo" aria-label="Ulica a číslo">
             <input type="text" id="mesto-zakaznika" placeholder="PSČ a Mesto" aria-label="PSČ a mesto">
@@ -1231,6 +1247,16 @@
                     <p class="settings-section-hint">Použi <b>{ROK}</b> pre aktuálny rok a <b>{CISLO}</b> pre poradové číslo. Ak začínaš uprostred roka, prepíš si nasledujúce číslo.</p>
 
                     <hr style="border: none; border-top: 1px dashed var(--border-color); margin: 16px 0;">
+
+                    <label for="profil-supis-vazba">Predvolená väzba súpisu prác</label>
+                    <select id="profil-supis-vazba">
+                        <option value="cp">Súpis prác k cenovej ponuke č.</option>
+                        <option value="zakazka">Súpis prác k zákazke č.</option>
+                        <option value="faktura">Súpis prác k faktúre č.</option>
+                        <option value="ine">Vlastný text…</option>
+                    </select>
+                    <input type="text" id="profil-supis-vazba-custom" placeholder="Napr. Súpis prác k objednávke č." style="display: none; margin-top: 8px;">
+                    <p class="settings-section-hint">Určuje, na čo sa štandardne viaže súpis prác (v hlavičke PDF). Pri každom súpise sa dá zmeniť.</p>
 
                     <label for="profil-poznamka-1">Predvolená poznámka (nad technickým popisom)</label>
                     <textarea id="profil-poznamka-1" rows="2" placeholder="napr. Cenová ponuka bola spracovaná na základe obhliadky..." style="width: 100%; padding: 12px; border: 1px solid var(--input-border-color); border-radius: 6px; font-family: inherit; margin-bottom: 10px; background: var(--input-bg-color); color: var(--text-color); box-sizing: border-box;"></textarea>
