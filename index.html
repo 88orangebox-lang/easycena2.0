@@ -119,7 +119,33 @@
         .polozka-riadok[data-kategoria="material"]::before { background: #facc15; }
         .polozka-riadok[data-kategoria="zariadenie"]::before { background: #3b82f6; }
         .polozka-riadok[data-kategoria="praca"]::before { background: #22c55e; }
-        
+
+        /* Šípky na presun položiek / balíkov hore a dole */
+        .riadok-presun {
+            display: flex; flex-direction: column; gap: 3px;
+            flex-shrink: 0; align-self: center;
+        }
+        .sipka-presun {
+            width: 26px; height: 22px; padding: 0; margin: 0;
+            border: 1px solid var(--input-border-color);
+            background: var(--secondary-btn-bg-color);
+            color: var(--text-color);
+            border-radius: 5px; font-size: 11px; line-height: 1;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+            transition: background 0.12s, transform 0.08s;
+        }
+        .sipka-presun:hover { background: color-mix(in srgb, var(--accent-color) 25%, var(--secondary-btn-bg-color)); }
+        .sipka-presun:active { transform: scale(0.86); }
+        /* Krajné šípky sa zneaktívnia: prvá "hore" a posledná "dole" */
+        #zoznam-poloziek > *:first-child .sipka-hore,
+        #zoznam-poloziek > *:last-child .sipka-dole,
+        #zoznam-poloziek-balika > *:first-child .sipka-hore,
+        #zoznam-poloziek-balika > *:last-child .sipka-dole {
+            opacity: 0.2; pointer-events: none;
+        }
+
         .mnoz-minus, .mnoz-plus { background-color: var(--secondary-btn-bg-color) !important; color: var(--accent-color) !important; border-color: var(--input-border-color) !important; }
         
         /* Balík štýly */

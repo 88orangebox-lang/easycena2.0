@@ -387,6 +387,34 @@ document.getElementById('pridat-polozku-btn').addEventListener('click', () => {
     ulozRozpracovanuPonuku();
 });
 
+// HTML blok šípok ↑/↓ na presun riadku (vkladá sa na začiatok riadku/hlavičky).
+const _SIPKY_PRESUN_HTML = `
+        <div class="riadok-presun">
+            <button type="button" class="sipka-presun sipka-hore" title="Posunúť hore" aria-label="Posunúť hore">▲</button>
+            <button type="button" class="sipka-presun sipka-dole" title="Posunúť nadol" aria-label="Posunúť nadol">▼</button>
+        </div>`;
+
+// Pripojí obsluhu šípok presunu na daný prvok (položku alebo balík).
+// onPresun() sa zavolá po úspešnom presune — napr. prepočet súm + uloženie.
+function _pripojSipkyPresunu(prvok, onPresun) {
+    const hore = prvok.querySelector('.sipka-hore');
+    const dole = prvok.querySelector('.sipka-dole');
+    if (hore) hore.addEventListener('click', () => {
+        const pred = prvok.previousElementSibling;
+        if (pred) {
+            prvok.parentNode.insertBefore(prvok, pred);
+            if (onPresun) onPresun();
+        }
+    });
+    if (dole) dole.addEventListener('click', () => {
+        const za = prvok.nextElementSibling;
+        if (za) {
+            prvok.parentNode.insertBefore(za, prvok);
+            if (onPresun) onPresun();
+        }
+    });
+}
+
 function pridajRiadok(kategoria = 'material', nazov = '', mnozstvo = 1, mj = 'ks', cena = '', dph = null, popis = '', upozornenie = '') {
     if (dph === null) {
         const profil = JSON.parse(localStorage.getItem('easycena_profil')) || {};
@@ -401,6 +429,7 @@ function pridajRiadok(kategoria = 'material', nazov = '', mnozstvo = 1, mj = 'ks
     div.dataset.upozornenie = upozornenie; 
     
     div.innerHTML = `
+        ${_SIPKY_PRESUN_HTML}
         <input type="text" class="polozka-nazov" placeholder="Názov položky (Balíčka)" value="${nazov}" style="flex: 2.5;">
         <div style="position: relative; flex: 1; display: flex;">
             ${upozornenie ? `<div title="Cena sa oproti pôvodnej ponuke zmenila o ${upozornenie}" style="position: absolute; left: 5px; top: 50%; transform: translateY(-50%); background: var(--accent-color); color: #000; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; cursor: help; z-index: 2; box-shadow: 0 0 5px rgba(0,0,0,0.3);">i</div>` : ''}
@@ -418,6 +447,7 @@ function pridajRiadok(kategoria = 'material', nazov = '', mnozstvo = 1, mj = 'ks
     `;
     document.getElementById('zoznam-poloziek').appendChild(div);
     pripojUdalostiRiadku(div);
+    _pripojSipkyPresunu(div, () => { prepocitajSumy(); ulozRozpracovanuPonuku(); });
 }
 function pridajBalikNaPlochu(balikNazov, polozkyBalika, ulozenyNasobic = 1) {
     const kontajner = document.createElement('div');
@@ -427,7 +457,10 @@ function pridajBalikNaPlochu(balikNazov, polozkyBalika, ulozenyNasobic = 1) {
     // Hlavička balíka
     kontajner.innerHTML = `
         <div class="balik-kontajner-header">
-            <strong style="font-size: 16px; text-transform: uppercase;">📦 ${balikNazov}</strong>
+            <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+                ${_SIPKY_PRESUN_HTML}
+                <strong style="font-size: 16px; text-transform: uppercase;">📦 ${balikNazov}</strong>
+            </div>
             <div style="display: flex; align-items: center; gap: 15px;">
                 <span class="balik-label-text">Celkom:</span>
                 <div style="display: flex; width: 110px;">
@@ -442,6 +475,7 @@ function pridajBalikNaPlochu(balikNazov, polozkyBalika, ulozenyNasobic = 1) {
     `;
 
     document.getElementById('zoznam-poloziek').appendChild(kontajner);
+    _pripojSipkyPresunu(kontajner, () => { prepocitajSumy(); ulozRozpracovanuPonuku(); });
     const obal = kontajner.querySelector('.balik-polozky-obal');
 
     // Vloženie položiek balíka
@@ -1009,6 +1043,7 @@ function pridajRiadokDoBalika(kategoria='material', nazov='', mnoz=1, mj='ks', c
     div.className = 'balik-polozka-riadok flex-row';
     div.style.marginBottom = '5px';
     div.innerHTML = `
+        ${_SIPKY_PRESUN_HTML}
         <select class="b-kat" style="flex: 1; padding: 6px; font-size: 14px;">
             <option value="zariadenie" ${kategoria==='zariadenie'?'selected':''}>🔵 Zariadenie</option>
             <option value="material" ${kategoria==='material'?'selected':''}>🟡 Materiál</option>
@@ -1032,7 +1067,8 @@ function pridajRiadokDoBalika(kategoria='material', nazov='', mnoz=1, mj='ks', c
         <button type="button" class="btn-danger btn-small" onclick="this.parentElement.remove()" style="padding: 6px;">X</button>
     `;
     document.getElementById('zoznam-poloziek-balika').appendChild(div);
-    
+    _pripojSipkyPresunu(div, null);
+
     const nazovInput = div.querySelector('.b-nazov');
     nazovInput.addEventListener('focus', (e) => ukazNasepkavac(e.target, true));
     nazovInput.addEventListener('input', (e) => ukazNasepkavac(e.target, false));
