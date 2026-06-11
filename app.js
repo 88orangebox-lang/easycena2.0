@@ -2122,6 +2122,10 @@ document.addEventListener('DOMContentLoaded', vykresliNahladPodpisu);
 // ==========================================
 // GENEROVANIE PDF (FINÁLNA OPRAVA FONTU A PÄTIČKY)
 // ==========================================
+// Spodný limit obsahu na strane: päta začína čiarou na y=275 (firma 282,
+// register od 287). Obsah musí skončiť najneskôr tu, inak by pätu prekryl.
+const PDF_MAX_Y = 268;
+
 async function vygenerujPDF(akcia) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -2323,9 +2327,11 @@ async function vygenerujPDF(akcia) {
         
         doc.setFontSize(10);
         platneRiadky.forEach(p => {
-            if(y > 255) { doc.addPage(); y = 20; }
-            doc.setTextColor(0, 0, 0);
+            // Zalomenie podľa skutočnej výšky riadku — dlhý názov zaberie
+            // viac riadkov a kontrola "y > 255" by ho nechala prejsť do päty.
             const splitNazov = doc.splitTextToSize(p.nazov, 80);
+            if (y + (splitNazov.length * 5) + 4 > PDF_MAX_Y) { doc.addPage(); y = 20; }
+            doc.setTextColor(0, 0, 0);
             doc.text(splitNazov, 20, y);
             
             doc.setTextColor(120, 120, 120);
@@ -2361,11 +2367,16 @@ async function vygenerujPDF(akcia) {
             }
         });
         
+        // Súhrn kategórie (zľava / bez DPH / DPH / spolu) sa nesmie rozseknúť
+        // ani prekryť pätu — ak sa celý nezmestí, ide na novú stranu.
+        const vyskaSuhrnu = (zlavaKat > 0 ? 6 : 0) + (platcaDPH ? 18 : 6) + 6;
+        if (y + vyskaSuhrnu > PDF_MAX_Y) { doc.addPage(); y = 20; }
+
         y += 2;
-        doc.setDrawColor(0, 86, 179); 
-        doc.setLineWidth(0.2); 
-        doc.line(105, y-4, 190, y-4); 
-        doc.setDrawColor(0, 0, 0); 
+        doc.setDrawColor(0, 86, 179);
+        doc.setLineWidth(0.2);
+        doc.line(105, y-4, 190, y-4);
+        doc.setDrawColor(0, 0, 0);
 
         if (zlavaKat > 0) {
             const hodnotaZlavy = sumaBloku * (zlavaKat / 100);
