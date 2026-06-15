@@ -830,10 +830,19 @@ function ukazNasepkavac(inputElement, vsetko = false) {
             nasepkavacDiv.appendChild(div);
         });
 
+        // Šírka našepkávača nezávisí od úzkeho políčka názvu — roztiahne sa,
+        // aby sa zmestili aj dlhé názvy líšiace sa len koncovkou. Ak by pretiekol
+        // z obrazovky, posunie sa doľava. (Dlhý názov sa navyše môže zalomiť — CSS.)
         const rect = inputElement.getBoundingClientRect();
-        nasepkavacDiv.style.left = rect.left + window.scrollX + 'px';
+        const medzera = 12;
+        const viewportW = document.documentElement.clientWidth;
+        const sirka = Math.max(rect.width, Math.min(440, viewportW - medzera * 2));
+        let left = rect.left + window.scrollX;
+        const maxLeft = window.scrollX + viewportW - medzera - sirka;
+        if (left > maxLeft) left = Math.max(window.scrollX + medzera, maxLeft);
+        nasepkavacDiv.style.left = left + 'px';
         nasepkavacDiv.style.top = rect.bottom + window.scrollY + 'px';
-        nasepkavacDiv.style.width = rect.width + 'px';
+        nasepkavacDiv.style.width = sirka + 'px';
         nasepkavacDiv.style.display = 'block';
     } else {
         schovajNasepkavac();
