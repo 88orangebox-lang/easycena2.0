@@ -3177,9 +3177,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (driveAccessToken) {
             if (typeof _skusPullOnOpen === 'function') _skusPullOnOpen();
         } else if (localStorage.getItem('easycena_drive_email')) {
-            // Token expiroval, ale kedysi bol prihlásený
+            // Token expiroval, ale kedysi bol prihlásený → výrazný červený
+            // indikátor (klik naň obnoví) + jednorazový toast.
+            if (typeof aktualizujCloudStatus === 'function') aktualizujCloudStatus('expired');
             if (typeof ukazToast === 'function') {
-                ukazToast('🔒 Drive prihlásenie vypršalo — klikni "Prihlásiť sa" v Nastaveniach', 'info', 6000);
+                ukazToast('🔒 Drive prihlásenie vypršalo — klikni 🔒 hore alebo "Prihlásiť sa" v Nastaveniach', 'info', 6000);
             }
         }
     }
@@ -3252,9 +3254,10 @@ function nacitajUlozenyDriveToken() {
             driveAccessToken = stored.token;
             driveUserEmail = localStorage.getItem('easycena_drive_email') || null;
         } else if (stored) {
-            // Token expiroval — vyčistíme
+            // Token expiroval — zmažeme len token. E-mail PONECHÁME ako signál,
+            // že užívateľ používa Drive (→ zobrazí sa červený indikátor a ponuka
+            // obnovy). E-mail sa maže len pri vedomom odhlásení (driveLogout).
             localStorage.removeItem('easycena_drive_token');
-            localStorage.removeItem('easycena_drive_email');
         }
     } catch (e) {
         console.warn('Drive token load failed:', e);
@@ -3563,12 +3566,16 @@ function oznacZmeneny(typ) {
 // =====================================================
 // CLOUD STATUS INDIKÁTOR (hero rohu vedľa autosave-status)
 // =====================================================
-// Stavy: 'ok' | 'pending' | 'pushing' | 'pulling' | 'error' | 'logged-out'
+// Stavy: 'ok' | 'pending' | 'pushing' | 'pulling' | 'error' | 'expired' | 'logged-out'
 function aktualizujCloudStatus(stav) {
     const el = document.getElementById('cloud-status');
     if (!el) return;
-    el.classList.remove('ok', 'pending', 'busy', 'error', 'logged-out');
-    if (stav === 'pushing') {
+    el.classList.remove('ok', 'pending', 'busy', 'error', 'expired', 'logged-out');
+    if (stav === 'expired') {
+        el.textContent = '🔒 Nesync.';
+        el.title = 'Prihlásenie do Google Drive vypršalo — zálohy sa NEsynchronizujú. Klikni pre obnovu.';
+        el.classList.add('expired');
+    } else if (stav === 'pushing') {
         el.textContent = '☁️ ↑';
         el.title = 'Synchronizujem do Drive…';
         el.classList.add('busy');
@@ -3601,11 +3608,42 @@ function aktualizujCloudStatus(stav) {
     }
 }
 
+// =====================================================
+// A1: DRŽANIE DRIVE PRIHLÁSENIA NAŽIVE POČAS PRÁCE
+// =====================================================
+// Pri interakcii užívateľa (klik) ticho predĺži token, KÝM EŠTE PLATÍ.
+// Keď už úplne vypršal, zámerne nerobí nič (nečakané Google okná = zlé
+// UX) — vtedy nastúpi červený indikátor 'expired' a obnova na 1 klik.
+let _poslednaKontrolaTokenu = 0;
+function _obnovDriveTokenAkTreba() {
+    if (!driveTokenClient) return;
+    if (!localStorage.getItem('easycena_drive_email')) return; // nie je Drive používateľ
+    const teraz = Date.now();
+    if (teraz - _poslednaKontrolaTokenu < 60000) return; // kontrola max 1×/min
+    _poslednaKontrolaTokenu = teraz;
+    let expiresAt = 0;
+    try {
+        const stored = JSON.parse(localStorage.getItem('easycena_drive_token') || 'null');
+        if (stored) expiresAt = stored.expiresAt || 0;
+    } catch (e) {}
+    // Predĺž len ak token EŠTE platí, ale vyprší o menej než 10 minút.
+    if (driveAccessToken && expiresAt > teraz && (expiresAt - teraz) < 10 * 60 * 1000) {
+        try { driveTokenClient.requestAccessToken({ prompt: '' }); } catch (e) {}
+    }
+}
+document.addEventListener('click', _obnovDriveTokenAkTreba, true);
+
 // Klik na cloud status → otvor Nastavenia + Cloud accordion
 document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('cloud-status');
     if (!el) return;
     el.addEventListener('click', () => {
+        // Ak prihlásenie vypršalo, klik ho rovno obnoví (z user gesture →
+        // pri aktívnej Google session väčšinou bez zadávania hesla).
+        if (el.classList.contains('expired')) {
+            if (typeof driveLogin === 'function') driveLogin();
+            return;
+        }
         const navItems = document.querySelectorAll('.bottom-nav .nav-item');
         const settingsTab = navItems[navItems.length - 1];
         if (settingsTab) settingsTab.click();

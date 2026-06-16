@@ -219,6 +219,13 @@
         .cloud-status.busy    { animation: cloud-pulse 1.5s ease-in-out infinite; color: var(--accent-color); }
         .cloud-status.pending { color: var(--accent-color); }
         .cloud-status.error   { color: var(--danger-btn-bg-color); }
+        /* Vypršané prihlásenie do Drive — výrazné, neprehliadnuteľné upozornenie */
+        .cloud-status.expired {
+            color: #fff;
+            background: var(--danger-btn-bg-color);
+            font-weight: 700;
+            animation: cloud-pulse 1.5s ease-in-out infinite;
+        }
         .cloud-status.logged-out { display: none; }
         @keyframes cloud-pulse {
             0%, 100% { opacity: 0.55; }
