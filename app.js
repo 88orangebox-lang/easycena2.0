@@ -3177,12 +3177,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (driveAccessToken) {
             if (typeof _skusPullOnOpen === 'function') _skusPullOnOpen();
         } else if (localStorage.getItem('easycena_drive_email')) {
-            // Token expiroval, ale kedysi bol prihlásený → výrazný červený
-            // indikátor (klik naň obnoví) + jednorazový toast.
+            // Token expiroval, ale kedysi bol prihlásený → výrazná výstraha
+            // (modál cez celú obrazovku) + trvalý červený indikátor v rohu.
             if (typeof aktualizujCloudStatus === 'function') aktualizujCloudStatus('expired');
-            if (typeof ukazToast === 'function') {
-                ukazToast('🔒 Drive prihlásenie vypršalo — klikni 🔒 hore alebo "Prihlásiť sa" v Nastaveniach', 'info', 6000);
-            }
+            if (typeof zobrazDriveExpiredVystrahu === 'function') zobrazDriveExpiredVystrahu();
         }
     }
     tryInitGoogleSdk();
@@ -3606,6 +3604,48 @@ function aktualizujCloudStatus(stav) {
         el.textContent = '';
         el.classList.add('logged-out');
     }
+}
+
+// =====================================================
+// VÝSTRAHA: vypršané Drive prihlásenie (modál pri štarte)
+// =====================================================
+// Výrazné, neprehliadnuteľné upozornenie cez celú obrazovku. Zobrazí sa
+// len Drive používateľom, ktorým prihlásenie vypršalo. Raz za session
+// (po "Neskôr" sa nevracia, kým appku nezavrieš a neotvoríš znova).
+let _driveExpiredVystrahaZobrazena = false;
+function zobrazDriveExpiredVystrahu() {
+    if (_driveExpiredVystrahaZobrazena) return;
+    if (document.getElementById('drive-expired-overlay')) return;
+    _driveExpiredVystrahaZobrazena = true;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'sync-dialog-overlay';
+    overlay.id = 'drive-expired-overlay';
+    overlay.innerHTML = `
+        <div class="sync-dialog" style="border: 2px solid var(--danger-btn-bg-color);">
+            <h3 style="color: var(--danger-btn-bg-color);">⚠️ Cloud záloha je odpojená</h3>
+            <div class="sync-meta">
+                Prihlásenie do <strong>Google Drive</strong> vypršalo, takže
+                <strong>zálohy sa teraz nesynchronizujú</strong>. Ak si na inom
+                zariadení medzitým niečo zmenil, zmeny sa nestiahnu, kým sa
+                znova neprihlásiš.
+            </div>
+            <button type="button" class="sync-option recommended" id="drive-exp-prihlasit">
+                <div class="sync-option-title">🔒 Prihlásiť sa do Google Drive</div>
+                <div class="sync-option-desc">Obnoví prihlásenie a stiahne najnovšiu zálohu.</div>
+            </button>
+            <button type="button" class="sync-cancel" id="drive-exp-neskor">Neskôr (pripomenie sa pri ďalšom otvorení)</button>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    document.getElementById('drive-exp-prihlasit').addEventListener('click', () => {
+        _zatvorModal(overlay);
+        if (typeof driveLogin === 'function') driveLogin();
+    });
+    document.getElementById('drive-exp-neskor').addEventListener('click', () => {
+        _zatvorModal(overlay);
+    });
 }
 
 // =====================================================
