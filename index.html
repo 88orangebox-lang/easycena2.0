@@ -900,6 +900,22 @@
             </div>
         </div>
 
+        <!-- DPH prepínač — viditeľný len ak je firma platca DPH (profil) -->
+        <div id="obal-dph-prepinac" class="card" data-section="polozky" style="display: none; margin-bottom: 25px;">
+            <label style="display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: normal; margin: 0; text-transform: none; font-size: 15px; color: var(--text-color); cursor: pointer;">
+                <span>
+                    Účtovať DPH v tejto ponuke
+                    <span class="section-label-hint" style="display: block; text-transform: none; letter-spacing: 0; font-size: 12px; margin-top: 4px; color: var(--text-muted-color);">Vypni pri prenose daňovej povinnosti (medzi platcami DPH). IČ DPH zostáva na ponuke.</span>
+                </span>
+                <label for="ponuka-dph-toggle" style="display: flex; align-items: center; cursor: pointer; flex-shrink: 0;">
+                    <input type="checkbox" id="ponuka-dph-toggle" style="display: none;" checked>
+                    <span style="position: relative; width: 44px; height: 24px; background-color: #374151; border-radius: 9999px; transition: background-color 0.2s;">
+                        <span style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background-color: white; border-radius: 9999px; transition: transform 0.2s;"></span>
+                    </span>
+                </label>
+            </label>
+        </div>
+
         <div class="card" data-section="polozky">
             <h3 class="section-label">Položky ponuky</h3>
             <div id="zoznam-poloziek"></div>
@@ -929,7 +945,7 @@
                 <span id="hodnota-dph">0.00 €</span>
             </div>
             <div style="text-align: center; margin-top: 10px;">
-                <h2 style="margin: 0; font-size: 24px;">SPOLU: <span id="konecna-suma">0.00</span> €</h2>
+                <h2 style="margin: 0; font-size: 24px;"><span id="konecna-suma-label">SPOLU:</span> <span id="konecna-suma">0.00</span> €</h2>
             </div>
         </div>
 
@@ -1161,6 +1177,8 @@
         <style>
             #theme-toggle:checked + span { background-color: #0056b3; }
             #theme-toggle:checked + span span { transform: translateX(20px); }
+            #ponuka-dph-toggle:checked + span { background-color: var(--success-btn-bg-color); }
+            #ponuka-dph-toggle:checked + span span { transform: translateX(20px); }
         </style>
 
         <div class="settings-accordion">

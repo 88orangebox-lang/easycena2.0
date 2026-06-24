@@ -76,6 +76,7 @@ function ulozRozpracovanuPonuku() {
         supisVazbaTyp:    document.getElementById('supis-vazba-typ')    ? document.getElementById('supis-vazba-typ').value    : 'cp',
         supisVazbaCislo:  document.getElementById('supis-vazba-cislo')  ? document.getElementById('supis-vazba-cislo').value  : '',
         supisVazbaCustom: document.getElementById('supis-vazba-custom') ? document.getElementById('supis-vazba-custom').value : '',
+        dphZapnute: document.getElementById('ponuka-dph-toggle') ? document.getElementById('ponuka-dph-toggle').checked : true,
         meno: document.getElementById('meno-zakaznika').value,
         ulica: document.getElementById('ulica-zakaznika').value,
         mesto: document.getElementById('mesto-zakaznika').value,
@@ -262,6 +263,10 @@ function obnovRozpracovanuPonuku() {
         document.getElementById('icdph-zakaznika').value = data.icdph || '';
         document.getElementById('telefon-zakaznika').value = data.telefon || '';
         document.getElementById('email-zakaznika').value = data.email || '';
+        // DPH prepínač ponuky — staré ponuky bez poľa → zapnuté (ako doteraz)
+        const dphToggleObn = document.getElementById('ponuka-dph-toggle');
+        if (dphToggleObn) dphToggleObn.checked = (data.dphZapnute !== undefined) ? !!data.dphZapnute : true;
+        if (typeof aktualizujDPHprepinacViditelnost === 'function') aktualizujDPHprepinacViditelnost();
     if(document.getElementById('ponuka-znacka')) document.getElementById('ponuka-znacka').value = data.znackaId || '';
     if(document.getElementById('ponuka-dodacie')) document.getElementById('ponuka-dodacie').value = data.dodacie || 'dohodou';
     if(document.getElementById('ponuka-platobne')) document.getElementById('ponuka-platobne').value = data.platobne || 'zálohová platba';
@@ -721,6 +726,10 @@ document.getElementById('nova-ponuka-btn').addEventListener('click', () => {
         if(document.getElementById('ponuka-znacka')) document.getElementById('ponuka-znacka').value = '';
         document.getElementById('zoznam-poloziek').innerHTML = '';
         document.getElementById('zoznam-zliav').innerHTML = '';
+        // Nová ponuka → DPH default zapnuté (ak je firma platca, prepínač sa ukáže)
+        const dphToggleNova = document.getElementById('ponuka-dph-toggle');
+        if (dphToggleNova) dphToggleNova.checked = true;
+        aktualizujDPHprepinacViditelnost();
         pridajRiadok();
         generujNoveCislo();
         prepocitajSumy();
@@ -728,6 +737,12 @@ document.getElementById('nova-ponuka-btn').addEventListener('click', () => {
         aktualizujNadpisPonuky();
     }
 });
+
+// Prepínač DPH v ponuke → prepočítaj sumy + ulož
+(function initDphPrepinac() {
+    const t = document.getElementById('ponuka-dph-toggle');
+    if (t) t.addEventListener('change', () => { prepocitajSumy(); ulozRozpracovanuPonuku(); });
+})();
 
 // Live update titulku pri písaní mena klienta
 (function initPonukaTitulokListener() {
@@ -892,6 +907,30 @@ document.addEventListener('keydown', (e) => {
 // ==========================================
 // MATEMATIKA
 // ==========================================
+// =====================================================
+// DPH V PONUKE — per‑ponuka prepínač
+// =====================================================
+// "Efektívna DPH" sa účtuje len ak je firma platcom DPH (profil) A ZÁROVEŇ
+// je zapnutý prepínač v ponuke. Prepínač sa zobrazuje len platcovi DPH.
+// Vypnutie slúži na režim prenosu daňovej povinnosti (medzi platcami) —
+// IČ DPH preto zostáva na doklade (viazané na profil, nie na tento prepínač).
+function jeFirmaPlatcaDPH() {
+    const el = document.getElementById('som-platca-dph');
+    return el ? el.checked : false;
+}
+function jeDPHvPonuke() {
+    const toggle = document.getElementById('ponuka-dph-toggle');
+    return toggle ? toggle.checked : true; // default zapnuté (aj pre staré ponuky)
+}
+function jeEfektivnaDPH() {
+    return jeFirmaPlatcaDPH() && jeDPHvPonuke();
+}
+// Prepínač DPH ukáž len ak je firma platcom DPH; inak skry (DPH neexistuje).
+function aktualizujDPHprepinacViditelnost() {
+    const obal = document.getElementById('obal-dph-prepinac');
+    if (obal) obal.style.display = jeFirmaPlatcaDPH() ? 'block' : 'none';
+}
+
 function prepocitajSumy() {
     // 1. Zistíme zľavy
     let zlavyPerc = { zariadenie: 0, material: 0, praca: 0, globalna: 0 };
@@ -901,7 +940,7 @@ function prepocitajSumy() {
         if(typ && hodnota > 0) zlavyPerc[typ] += hodnota;
     });
 
-    const platcaDPH = document.getElementById('som-platca-dph').checked;
+    const platcaDPH = jeEfektivnaDPH();
 
     let sumyKat = {
         zariadenie: { hrube: 0, dphKat: 0, dphCelkom: 0 },
@@ -1018,6 +1057,10 @@ function prepocitajSumy() {
 
     document.getElementById('zaklad-bez-dph').innerText = zakladBezDPH.toFixed(2) + ' €';
     document.getElementById('konecna-suma').innerText = konecnaSuma.toFixed(2);
+
+    // Text pri celkovej sume: "SPOLU" (s DPH) / "SPOLU (bez DPH)" (prenos DP alebo neplatca)
+    const lbl = document.getElementById('konecna-suma-label');
+    if (lbl) lbl.textContent = platcaDPH ? 'SPOLU:' : 'SPOLU (bez DPH):';
 }
 
 // ==========================================
@@ -1881,6 +1924,8 @@ document.getElementById('som-platca-dph').addEventListener('change', function() 
     document.getElementById('moje-ic-dph').style.display = this.checked ? 'block' : 'none';
     document.getElementById('profil-sadzba-dph').style.display = this.checked ? 'block' : 'none'; // NOVÝ RIADOK
     document.getElementById('katalog-cena').placeholder = this.checked ? 'Cena bez DPH (€)' : 'Cena (€)';
+    // Zmena "som platca DPH" → zobraz/skry per‑ponuka prepínač DPH
+    if (typeof aktualizujDPHprepinacViditelnost === 'function') aktualizujDPHprepinacViditelnost();
     prepocitajSumy();
 });
 
@@ -1983,6 +2028,9 @@ function nacitajProfil() {
     let aktualnyRok = new Date().getFullYear();
     let pocitadlo = JSON.parse(localStorage.getItem('pocitadloPonuk')) || { rok: aktualnyRok, pocet: 0 };
     document.getElementById('profil-pocitadlo').value = pocitadlo.pocet + 1;
+
+    // Viditeľnosť per‑ponuka DPH prepínača podľa toho, či je firma platca DPH
+    if (typeof aktualizujDPHprepinacViditelnost === 'function') aktualizujDPHprepinacViditelnost();
 }
 
 
@@ -2151,7 +2199,10 @@ async function vygenerujPDF(akcia) {
     let y = 20;
     const cislo = document.getElementById('cislo-ponuky').value;
     let ulozeneLogo = localStorage.getItem('easycena_logo');
-    const platcaDPH = document.getElementById('som-platca-dph').checked;
+    // firmaPlatca = je firma platcom DPH (profil) → riadi zobrazenie IČ DPH.
+    // platcaDPH   = efektívna DPH pre VÝPOČTY (profil + prepínač v ponuke).
+    const firmaPlatca = document.getElementById('som-platca-dph').checked;
+    const platcaDPH = firmaPlatca && jeDPHvPonuke();
     
     // LOGO A NADPIS
     if (ulozeneLogo) {
@@ -2260,7 +2311,7 @@ async function vygenerujPDF(akcia) {
     
     if(document.getElementById('moje-ico').value) { doc.text('IČO: ' + document.getElementById('moje-ico').value, 20, riadokDodavatel); riadokDodavatel += 6;}
     if(document.getElementById('moje-dic').value) { doc.text('DIČ: ' + document.getElementById('moje-dic').value, 20, riadokDodavatel); riadokDodavatel += 6;}
-    if(platcaDPH && document.getElementById('moje-ic-dph').value) { doc.text('IČ DPH: ' + document.getElementById('moje-ic-dph').value, 20, riadokDodavatel); riadokDodavatel += 6;}
+    if(firmaPlatca && document.getElementById('moje-ic-dph').value) { doc.text('IČ DPH: ' + document.getElementById('moje-ic-dph').value, 20, riadokDodavatel); riadokDodavatel += 6;}
     
     if(profil.kontaktnaOsoba) { doc.text('Vybavuje: ' + profil.kontaktnaOsoba, 20, riadokDodavatel); riadokDodavatel += 6; }
     
@@ -2480,8 +2531,15 @@ async function vygenerujPDF(akcia) {
     doc.setFont("Roboto", "bold");
     doc.setFontSize(16);
     doc.setTextColor(0, 0, 0);
-    // Posunuté dostatočne doľava, aby sa "KONEČNÁ SUMA:" a suma nikdy nezrazili
-    doc.text('KONEČNÁ SUMA:', 140, y, { align: "right" }); 
+    // Posunuté dostatočne doľava, aby sa "KONEČNÁ SUMA:" a suma nikdy nezrazili.
+    // Pri vypnutej DPH (prenos DP / neplatca) je suma bez DPH — uvedieme to.
+    if (platcaDPH) {
+        doc.text('KONEČNÁ SUMA:', 140, y, { align: "right" });
+    } else {
+        doc.setFontSize(13);
+        doc.text('KONEČNÁ SUMA (bez DPH):', 140, y, { align: "right" });
+        doc.setFontSize(16);
+    }
     doc.setTextColor(0, 86, 179);
     doc.text(zakladSuma.toFixed(2) + ' €', 188, y, { align: "right" });
     doc.setFont("Roboto", "normal");
