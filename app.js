@@ -1829,11 +1829,44 @@ function vytvorSupisPrac(id) {
 }
 
 function duplikujZArchivu(id) {
-    if(!confirm('Aktuálne rozpísaná ponuka na pracovnej ploche sa prepíše novou kópiou. Pokračovať?')) return;
-    
     const staraPonuka = archiv.find(p => p.id === id);
     if(!staraPonuka) return;
+    _zobrazDuplikatDialog(staraPonuka);
+}
 
+// Dialóg pri duplikovaní: ponechať pôvodné ceny vs. aktualizovať podľa cenníka.
+function _zobrazDuplikatDialog(staraPonuka) {
+    const overlay = document.createElement('div');
+    overlay.className = 'sync-dialog-overlay';
+    overlay.innerHTML = `
+        <div class="sync-dialog">
+            <h3>📄 Duplikovať ponuku</h3>
+            <div class="sync-meta">Vyber, ako sa majú nastaviť ceny položiek v novej kópii. Aktuálna rozpísaná ponuka sa prepíše.</div>
+            <button type="button" class="sync-option recommended" data-action="ponechat">
+                <div class="sync-option-title">🔒 Ponechať ceny z pôvodnej ponuky (odporúčané)</div>
+                <div class="sync-option-desc">Skopíruje ponuku 1:1 vrátane tvojich upravených cien. Vhodné pre špeciálne ponuky s individuálnymi cenami.</div>
+            </button>
+            <button type="button" class="sync-option" data-action="aktualizovat">
+                <div class="sync-option-title">🔄 Aktualizovať ceny podľa cenníka</div>
+                <div class="sync-option-desc">Dotiahne aktuálne ceny z katalógu a označí zmenené položky.</div>
+            </button>
+            <button type="button" class="sync-cancel">Zrušiť</button>
+        </div>
+    `;
+    overlay.querySelector('.sync-cancel').addEventListener('click', () => _zatvorModal(overlay));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) _zatvorModal(overlay); });
+    overlay.querySelectorAll('.sync-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const aktualizovat = btn.dataset.action === 'aktualizovat';
+            _zatvorModal(overlay);
+            _vykonajDuplikat(staraPonuka, aktualizovat);
+        });
+    });
+    document.body.appendChild(overlay);
+}
+
+// Vykoná samotné duplikovanie. aktualizovatCeny = true → dotiahne ceny z cenníka.
+function _vykonajDuplikat(staraPonuka, aktualizovatCeny) {
     // Vytvoríme hlbokú kópiu, aby sme omylom neprepísali originál v archíve
     let novaPonuka = JSON.parse(JSON.stringify(staraPonuka));
 
@@ -1846,14 +1879,16 @@ function duplikujZArchivu(id) {
 
     // 1b. DÔLEŽITÉ: Ak sa duplikuje ponuka, ktorá bola uložená ako Súpis prác,
     // nesmieme zdediť súpisové flagy — má vzniknúť čistá NOVÁ cenová ponuka.
+    // Zároveň vyčistíme staré cenové upozornenia (bubliny) z predošlých duplikovaní.
     novaPonuka.rezimSupisPrac = false;
     delete novaPonuka.obsahujeSupis;
     if (Array.isArray(novaPonuka.polozky)) {
         novaPonuka.polozky.forEach(p => {
             if (p.typRiadku === 'balik' && Array.isArray(p.polozky)) {
-                p.polozky.forEach(bp => { delete bp.zamknutaCena; });
+                p.polozky.forEach(bp => { delete bp.zamknutaCena; delete bp.upozornenie; });
             } else {
                 delete p.zamknutaCena;
+                delete p.upozornenie;
             }
         });
     }
@@ -1862,55 +1897,58 @@ function duplikujZArchivu(id) {
     }
     // Pre istotu vypneme režim aj na úrovni runtime, kým sa volá obnovRozpracovanuPonuku()
     window.jeRezimSupis = false;
-    
-    // 2. Inteligentná kontrola cien z Katalógu
+
+    // 2. Inteligentná kontrola cien z Katalógu — LEN pri voľbe "Aktualizovať"
     let zmenenePolozky = [];
-    const aktualnyKatalog = JSON.parse(localStorage.getItem('easycena_katalog')) || [];
-    
-    if (novaPonuka.polozky) {
-        novaPonuka.polozky.forEach(p => {
-            if (p.typRiadku === 'balik') {
-                p.polozky.forEach(bp => {
-                    // Hľadáme presnú zhodu v katalógu podľa názvu (ignorujeme veľké/malé písmená)
-                    const vKatalogu = aktualnyKatalog.find(k => k.typ === 'polozka' && k.nazov.trim().toLowerCase() === bp.nazov.trim().toLowerCase());
-                    if (vKatalogu && (parseFloat(vKatalogu.cena) !== parseFloat(bp.cena) || parseFloat(vKatalogu.dph) !== parseFloat(bp.dph))) {
-                        let rozdiel = parseFloat(vKatalogu.cena) - parseFloat(bp.cena);
+    if (aktualizovatCeny) {
+        const aktualnyKatalog = JSON.parse(localStorage.getItem('easycena_katalog')) || [];
+        if (novaPonuka.polozky) {
+            novaPonuka.polozky.forEach(p => {
+                if (p.typRiadku === 'balik') {
+                    p.polozky.forEach(bp => {
+                        // Hľadáme presnú zhodu v katalógu podľa názvu (ignorujeme veľké/malé písmená)
+                        const vKatalogu = aktualnyKatalog.find(k => k.typ === 'polozka' && k.nazov.trim().toLowerCase() === bp.nazov.trim().toLowerCase());
+                        if (vKatalogu && (parseFloat(vKatalogu.cena) !== parseFloat(bp.cena) || parseFloat(vKatalogu.dph) !== parseFloat(bp.dph))) {
+                            let rozdiel = parseFloat(vKatalogu.cena) - parseFloat(bp.cena);
+                            let znamienko = rozdiel > 0 ? '+' : '';
+                            bp.upozornenie = `${znamienko}${rozdiel.toFixed(2)} €`;
+
+                            zmenenePolozky.push(`- ${bp.nazov} (Nová cena: ${vKatalogu.cena} €)`);
+                            bp.cena = vKatalogu.cena;
+                            bp.dph = vKatalogu.dph;
+                        }
+                    });
+                } else {
+                    const vKatalogu = aktualnyKatalog.find(k => k.typ === 'polozka' && k.nazov.trim().toLowerCase() === p.nazov.trim().toLowerCase());
+                    if (vKatalogu && (parseFloat(vKatalogu.cena) !== parseFloat(p.cena) || parseFloat(vKatalogu.dph) !== parseFloat(p.dph))) {
+                        let rozdiel = parseFloat(vKatalogu.cena) - parseFloat(p.cena);
                         let znamienko = rozdiel > 0 ? '+' : '';
-                        bp.upozornenie = `${znamienko}${rozdiel.toFixed(2)} €`; 
-                        
-                        zmenenePolozky.push(`- ${bp.nazov} (Nová cena: ${vKatalogu.cena} €)`);
-                        bp.cena = vKatalogu.cena;
-                        bp.dph = vKatalogu.dph;
+                        p.upozornenie = `${znamienko}${rozdiel.toFixed(2)} €`;
+
+                        zmenenePolozky.push(`- ${p.nazov} (Nová cena: ${vKatalogu.cena} €)`);
+                        p.cena = vKatalogu.cena;
+                        p.dph = vKatalogu.dph;
                     }
-                });
-            } else {
-                const vKatalogu = aktualnyKatalog.find(k => k.typ === 'polozka' && k.nazov.trim().toLowerCase() === p.nazov.trim().toLowerCase());
-                if (vKatalogu && (parseFloat(vKatalogu.cena) !== parseFloat(p.cena) || parseFloat(vKatalogu.dph) !== parseFloat(p.dph))) {
-                    let rozdiel = parseFloat(vKatalogu.cena) - parseFloat(p.cena);
-                    let znamienko = rozdiel > 0 ? '+' : '';
-                    p.upozornenie = `${znamienko}${rozdiel.toFixed(2)} €`; 
-                    
-                    zmenenePolozky.push(`- ${p.nazov} (Nová cena: ${vKatalogu.cena} €)`);
-                    p.cena = vKatalogu.cena;
-                    p.dph = vKatalogu.dph;
                 }
-            }
-        });
+            });
+        }
     }
 
     // 3. Pošleme zaktualizovanú kópiu na pracovnú plochu
     localStorage.setItem('easycena_rozpracovana', JSON.stringify(novaPonuka));
-    
+
     // 4. Prekreslíme plochu a OBRATOM jej vygenerujeme ÚPLNE NOVÉ číslo
     obnovRozpracovanuPonuku();
-    generujNoveCislo(); 
+    generujNoveCislo();
     prepocitajSumy();
     ulozRozpracovanuPonuku(); // Definitívne uloženie nového stavu
-    
+
     // 5. Presmerujeme používateľa a dáme mu hlásenie
-    document.querySelector('.nav-item').click(); 
-    
-    if (zmenenePolozky.length > 0) {
+    document.querySelector('.nav-item').click();
+
+    if (!aktualizovatCeny) {
+        alert('Ponuka bola úspešne duplikovaná s NOVÝM číslom.\nCeny ponechané z pôvodnej ponuky.');
+    } else if (zmenenePolozky.length > 0) {
         alert('Ponuka bola úspešne duplikovaná s NOVÝM číslom.\n\n⚠️ POZOR: Tieto položky boli zaktualizované podľa aktuálneho cenníka:\n' + zmenenePolozky.join('\n'));
     } else {
         alert('Ponuka bola úspešne duplikovaná s NOVÝM číslom.\nVšetky ceny sú aktuálne.');
