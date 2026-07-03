@@ -1,4 +1,4 @@
-const CACHE_NAME = 'easycena-pro-v6';
+const CACHE_NAME = 'easycena-pro-v7';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -10,7 +10,10 @@ const ASSETS_TO_CACHE = [
     './favicon-96x96.png',
     './web-app-manifest-192x192.png',
     './web-app-manifest-512x512.png',
-    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+    // BEZPEČNOSŤ: CDN knižnicu žiadame v CORS režime — stránka ju teraz
+    // načítava s integrity podpisom (SRI) a ten sa dá overiť len na
+    // CORS odpovedi. Opaque (no-cors) cache by SRI kontrolu zablokovala.
+    new Request('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', { mode: 'cors' })
 ];
 
 // Súbory ktoré ako PWA často meníme — pre tieto použijeme NETWORK-FIRST

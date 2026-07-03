@@ -10,8 +10,15 @@
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
     <link rel="manifest" href="site.webmanifest" />
     <meta name="theme-color" content="#0056b3">
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <!-- BEZPEČNOSŤ: Content Security Policy — povoľuje len známe zdroje
+         skriptov a pripojení (vlastný kód, cdnjs pre jsPDF, Google pre
+         prihlásenie a Drive API). Blokuje načítanie čohokoľvek cudzieho. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://accounts.google.com; connect-src 'self' https://www.googleapis.com https://accounts.google.com; frame-src https://accounts.google.com; img-src 'self' data: blob: https://ssl.gstatic.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self';">
+
+    <!-- BEZPEČNOSŤ: integrity (SRI) — prehliadač odmietne knižnicu, ak by ju
+         niekto na CDN podvrhol. Google gsi/client SRI nepodporuje (mení sa). -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="Roboto-Regular-normal.js"></script>
     <script src="Roboto-Bold-bold.js"></script>

@@ -306,12 +306,10 @@ function obnovRozpracovanuPonuku() {
             if (data.zlavy && Array.isArray(data.zlavy)) {
                 data.zlavy.forEach(z => pridajZlavu(z.typ, z.hodnota, z.zamknuta || ''));
             }
-        } else if (data.polozkyHTML !== undefined) {
-            document.getElementById('zoznam-poloziek').innerHTML = data.polozkyHTML;
-            document.getElementById('zoznam-zliav').innerHTML = data.zlavyHTML || '';
-            document.querySelectorAll('.polozka-riadok, .zlava-riadok').forEach(pripojUdalostiRiadku);
-            ulozRozpracovanuPonuku();
         }
+        // BEZPEČNOSŤ: odstránená legacy vetva "polozkyHTML" — vkladala surové
+        // HTML zo zálohy priamo do stránky (XSS cez upravený záložný súbor).
+        // Všetky moderné ponuky používajú štruktúrované pole "polozky".
     } else {
         generujNoveCislo();
     }
@@ -433,22 +431,24 @@ function pridajRiadok(kategoria = 'material', nazov = '', mnozstvo = 1, mj = 'ks
     div.dataset.dph = dph;
     div.dataset.upozornenie = upozornenie; 
     
+    // Bezpečnosť: všetky užívateľské hodnoty escapujeme (XSS ochrana —
+    // dáta môžu prísť aj z CSV importu či zo synchronizovanej zálohy)
     div.innerHTML = `
         ${_SIPKY_PRESUN_HTML}
-        <input type="text" class="polozka-nazov" placeholder="Názov položky (Balíčka)" value="${nazov}" style="flex: 2.5;">
+        <input type="text" class="polozka-nazov" placeholder="Názov položky (Balíčka)" value="${_escapeHtml(nazov)}" style="flex: 2.5;">
         <div style="position: relative; flex: 1; display: flex;">
-            ${upozornenie ? `<div title="Cena sa oproti pôvodnej ponuke zmenila o ${upozornenie}" style="position: absolute; left: 5px; top: 50%; transform: translateY(-50%); background: var(--accent-color); color: #000; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; cursor: help; z-index: 2; box-shadow: 0 0 5px rgba(0,0,0,0.3);">i</div>` : ''}
-            <input type="number" class="polozka-cena" value="${cena}" min="0" step="0.01" style="width: 100%; padding-left: ${upozornenie ? '25px' : '8px'}; background-color: var(--card-bg-color); cursor: pointer; color: var(--text-muted-color); border: 1px solid var(--input-border-color); padding-right: 22px; box-sizing: border-box;" placeholder="€/MJ" readonly title="Klikni pre manuálnu úpravu ceny">
+            ${upozornenie ? `<div title="Cena sa oproti pôvodnej ponuke zmenila o ${_escapeHtml(upozornenie)}" style="position: absolute; left: 5px; top: 50%; transform: translateY(-50%); background: var(--accent-color); color: #000; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; cursor: help; z-index: 2; box-shadow: 0 0 5px rgba(0,0,0,0.3);">i</div>` : ''}
+            <input type="number" class="polozka-cena" value="${_escapeHtml(cena)}" min="0" step="0.01" style="width: 100%; padding-left: ${upozornenie ? '25px' : '8px'}; background-color: var(--card-bg-color); cursor: pointer; color: var(--text-muted-color); border: 1px solid var(--input-border-color); padding-right: 22px; box-sizing: border-box;" placeholder="€/MJ" readonly title="Klikni pre manuálnu úpravu ceny">
             <span style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--text-muted-color); font-weight: bold; pointer-events: none;">€</span>
         </div>
         <div style="display: flex; flex: 1.5; min-width: 120px;">
             <button type="button" class="mnoz-minus" style="padding: 0 10px; border-radius: 6px 0 0 6px; border: 2px solid var(--text-muted-color); border-right: none; margin: 0; font-weight: bold; font-size: 18px; background: var(--secondary-btn-bg-color); color: var(--text-color); cursor: pointer;">-</button>
-            <input type="number" class="polozka-mnozstvo" value="${mnozstvo}" min="1" style="width: 100%; text-align: center; border-radius: 0; margin: 0; padding: 10px 0; border-left: none; border-right: none;" placeholder="Počet">
+            <input type="number" class="polozka-mnozstvo" value="${_escapeHtml(mnozstvo)}" min="1" style="width: 100%; text-align: center; border-radius: 0; margin: 0; padding: 10px 0; border-left: none; border-right: none;" placeholder="Počet">
             <button type="button" class="mnoz-plus" style="padding: 0 10px; border-radius: 0 6px 6px 0; border: 2px solid var(--text-muted-color); border-left: none; margin: 0; font-weight: bold; font-size: 18px; background: var(--secondary-btn-bg-color); color: var(--text-color); cursor: pointer;">+</button>
         </div>
         <button type="button" class="btn-danger btn-small zmazat-riadok-btn" style="flex: 0.5; margin-left: 5px;">X</button>
-        
-        <textarea class="polozka-popis" rows="2" placeholder="Technický popis (zobrazí sa v PDF pod cenovou tabuľkou)" style="width: 100%; margin-top: 8px; padding: 6px; font-size: 13px; background-color: var(--input-bg-color); color: var(--text-muted-color); border: 1px dashed var(--border-color); border-radius: 4px; display: ${(kategoria === 'zariadenie' && popis.trim() !== '') ? 'block' : 'none'}; resize: vertical;">${popis}</textarea>
+
+        <textarea class="polozka-popis" rows="2" placeholder="Technický popis (zobrazí sa v PDF pod cenovou tabuľkou)" style="width: 100%; margin-top: 8px; padding: 6px; font-size: 13px; background-color: var(--input-bg-color); color: var(--text-muted-color); border: 1px dashed var(--border-color); border-radius: 4px; display: ${(kategoria === 'zariadenie' && popis.trim() !== '') ? 'block' : 'none'}; resize: vertical;">${_escapeHtml(popis)}</textarea>
     `;
     document.getElementById('zoznam-poloziek').appendChild(div);
     pripojUdalostiRiadku(div);
@@ -459,18 +459,18 @@ function pridajBalikNaPlochu(balikNazov, polozkyBalika, ulozenyNasobic = 1) {
     kontajner.className = 'balik-kontajner';
     kontajner.dataset.nazovBalika = balikNazov;
 
-    // Hlavička balíka
+    // Hlavička balíka (názov balíka escapovaný — XSS ochrana)
     kontajner.innerHTML = `
         <div class="balik-kontajner-header">
             <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
                 ${_SIPKY_PRESUN_HTML}
-                <strong style="font-size: 16px; text-transform: uppercase;">📦 ${balikNazov}</strong>
+                <strong style="font-size: 16px; text-transform: uppercase;">📦 ${_escapeHtml(balikNazov)}</strong>
             </div>
             <div style="display: flex; align-items: center; gap: 15px;">
                 <span class="balik-label-text">Celkom:</span>
                 <div style="display: flex; width: 110px;">
                     <button type="button" class="balik-minus balik-btn">-</button>
-                    <input type="text" class="balik-nasobic" value="${ulozenyNasobic}" readonly>
+                    <input type="text" class="balik-nasobic" value="${_escapeHtml(ulozenyNasobic)}" readonly>
                     <button type="button" class="balik-plus balik-btn">+</button>
                 </div>
                 <button type="button" class="btn-danger btn-small zmazat-balik-btn">X</button>
@@ -508,20 +508,20 @@ function pridajBalikNaPlochu(balikNazov, polozkyBalika, ulozenyNasobic = 1) {
         }
 
         div.innerHTML = `
-            <input type="text" class="polozka-nazov" value="${p.nazov}" style="flex: 2.5;">
+            <input type="text" class="polozka-nazov" value="${_escapeHtml(p.nazov)}" style="flex: 2.5;">
             <div style="position: relative; flex: 1; display: flex;">
-                ${upozornenie ? `<div title="Cena sa oproti pôvodnej ponuke zmenila o ${upozornenie}" style="position: absolute; left: 5px; top: 50%; transform: translateY(-50%); background: var(--accent-color); color: #000; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; cursor: help; z-index: 2; box-shadow: 0 0 5px rgba(0,0,0,0.3);">i</div>` : ''}
-                <input type="number" class="polozka-cena" value="${p.cena}" min="0" step="0.01" style="width: 100%; padding-left: ${upozornenie ? '25px' : '8px'}; padding-right: 22px; box-sizing: border-box;" readonly title="Klikni pre manuálnu úpravu">
+                ${upozornenie ? `<div title="Cena sa oproti pôvodnej ponuke zmenila o ${_escapeHtml(upozornenie)}" style="position: absolute; left: 5px; top: 50%; transform: translateY(-50%); background: var(--accent-color); color: #000; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; cursor: help; z-index: 2; box-shadow: 0 0 5px rgba(0,0,0,0.3);">i</div>` : ''}
+                <input type="number" class="polozka-cena" value="${_escapeHtml(p.cena)}" min="0" step="0.01" style="width: 100%; padding-left: ${upozornenie ? '25px' : '8px'}; padding-right: 22px; box-sizing: border-box;" readonly title="Klikni pre manuálnu úpravu">
                 <span style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--text-muted-color); font-weight: bold; pointer-events: none;">€</span>
             </div>
             <div style="display: flex; flex: 1.5; min-width: 120px;">
                 <button type="button" class="mnoz-minus" style="padding: 0 10px; margin: 0;">-</button>
-                <input type="number" class="polozka-mnozstvo" value="${p.mnozstvo}" min="0" step="0.01" style="width: 100%; text-align: center; border-radius: 0; margin: 0; padding: 10px 0;" placeholder="Počet">
+                <input type="number" class="polozka-mnozstvo" value="${_escapeHtml(p.mnozstvo)}" min="0" step="0.01" style="width: 100%; text-align: center; border-radius: 0; margin: 0; padding: 10px 0;" placeholder="Počet">
                 <button type="button" class="mnoz-plus" style="padding: 0 10px; margin: 0;">+</button>
             </div>
             <button type="button" class="btn-danger btn-small zmazat-riadok-btn" style="flex: 0.5; margin-left: 5px;">X</button>
-            
-            <textarea class="polozka-popis" rows="2" placeholder="Technický popis (zobrazí sa v PDF pod cenovou tabuľkou)" style="width: 100%; margin-top: 8px; padding: 6px; font-size: 13px; background-color: var(--input-bg-color); color: var(--text-muted-color); border: 1px dashed var(--border-color); border-radius: 4px; display: ${(p.kategoria === 'zariadenie' && textPopisu.trim() !== '') ? 'block' : 'none'}; resize: vertical;">${textPopisu}</textarea>
+
+            <textarea class="polozka-popis" rows="2" placeholder="Technický popis (zobrazí sa v PDF pod cenovou tabuľkou)" style="width: 100%; margin-top: 8px; padding: 6px; font-size: 13px; background-color: var(--input-bg-color); color: var(--text-muted-color); border: 1px dashed var(--border-color); border-radius: 4px; display: ${(p.kategoria === 'zariadenie' && textPopisu.trim() !== '') ? 'block' : 'none'}; resize: vertical;">${_escapeHtml(textPopisu)}</textarea>
         `;
         obal.appendChild(div);
         pripojUdalostiRiadku(div); // Aj vnútri balíka fungujú manuálne úpravy!
@@ -582,7 +582,7 @@ function pridajZlavu(typ = 'globalna', hodnota = 0, zamknuta = '') {
             <option value="praca" ${typ==='praca'?'selected':''}>🟢 Na prácu</option>
             <option value="globalna" ${typ==='globalna'?'selected':''}>⚪ Na celú ponuku</option>
         </select>
-        <input type="number" class="zlava-hodnota" value="${hodnota}" min="0" max="100" style="flex: 1;" placeholder="%" ${zamknuta === 'ano' ? 'readonly' : ''} ${zamknuta === 'ano' ? 'title="Klikni pre manuálnu úpravu"' : ''}>
+        <input type="number" class="zlava-hodnota" value="${_escapeHtml(hodnota)}" min="0" max="100" style="flex: 1;" placeholder="%" ${zamknuta === 'ano' ? 'readonly' : ''} ${zamknuta === 'ano' ? 'title="Klikni pre manuálnu úpravu"' : ''}>
         <button type="button" class="btn-danger btn-small zmazat-riadok-btn" style="flex: 0.5;">X</button>
     `;
     document.getElementById('zoznam-zliav').appendChild(div);
@@ -790,9 +790,9 @@ function ukazNasepkavac(inputElement, vsetko = false) {
 
             if (polozka.typ === 'balik' && !jeVBaliku) {
                 const pocet = polozka.polozky ? polozka.polozky.length : 0;
-                div.innerHTML = `<span class="nasepkavac-bodka ${triedaBodky}"></span><span class="np-text"><strong>📦 ${polozka.nazov}</strong> <small>(${pocet} položiek)</small></span>`;
+                div.innerHTML = `<span class="nasepkavac-bodka ${triedaBodky}"></span><span class="np-text"><strong>📦 ${_escapeHtml(polozka.nazov)}</strong> <small>(${pocet} položiek)</small></span>`;
             } else {
-                div.innerHTML = `<span class="nasepkavac-bodka ${triedaBodky}"></span><span class="np-text">${polozka.nazov} - ${polozka.cena} € / ${polozka.mj || 'ks'}</span>`;
+                div.innerHTML = `<span class="nasepkavac-bodka ${triedaBodky}"></span><span class="np-text">${_escapeHtml(polozka.nazov)} - ${_escapeHtml(polozka.cena)} € / ${_escapeHtml(polozka.mj || 'ks')}</span>`;
             }
 
             // Centrálny výber — dostupný pre klik aj pre Enter
@@ -1101,8 +1101,8 @@ function pridajRiadokDoBalika(kategoria='material', nazov='', mnoz=1, mj='ks', c
             <option value="material" ${kategoria==='material'?'selected':''}>🟡 Materiál</option>
             <option value="praca" ${kategoria==='praca'?'selected':''}>🟢 Práca</option>
         </select>
-        <input type="text" class="b-nazov" value="${nazov}" placeholder="Názov" style="flex: 2; padding: 6px; font-size: 14px;">
-        <input type="number" class="b-mnoz" value="${mnoz}" placeholder="Mn." style="flex: 0.8; padding: 6px; font-size: 14px;">
+        <input type="text" class="b-nazov" value="${_escapeHtml(nazov)}" placeholder="Názov" style="flex: 2; padding: 6px; font-size: 14px;">
+        <input type="number" class="b-mnoz" value="${_escapeHtml(mnoz)}" placeholder="Mn." style="flex: 0.8; padding: 6px; font-size: 14px;">
         <select class="b-mj" style="flex: 0.8; padding: 6px; font-size: 14px;">
             <option value="ks" ${mj==='ks'?'selected':''}>ks</option>
             <option value="m" ${mj==='m'?'selected':''}>m</option>
@@ -1115,7 +1115,7 @@ function pridajRiadokDoBalika(kategoria='material', nazov='', mnoz=1, mj='ks', c
             <option value="bal" ${mj==='bal'?'selected':''}>bal</option>
             <option value="kpl" ${mj==='kpl'?'selected':''}>kpl</option>
         </select>
-        <input type="number" class="b-cena" value="${cena}" placeholder="€" style="flex: 1; padding: 6px; font-size: 14px;">
+        <input type="number" class="b-cena" value="${_escapeHtml(cena)}" placeholder="€" style="flex: 1; padding: 6px; font-size: 14px;">
         <button type="button" class="btn-danger btn-small" onclick="this.parentElement.remove()" style="padding: 6px;">X</button>
     `;
     document.getElementById('zoznam-poloziek-balika').appendChild(div);
@@ -1344,17 +1344,17 @@ function vykresliKatalog() {
             ? '<span class="katalog-karta-stitok-warn">⚠️ Doplniť cenu / DPH</span>'
             : '';
 
-        // Nadpis a detail riadok podľa typu
+        // Nadpis a detail riadok podľa typu (názvy escapované — XSS ochrana)
         let nazovHtml, detailHtml;
         if (polozka.typ === 'balik') {
             const pocet = polozka.polozky ? polozka.polozky.length : 0;
             const sumaBalika = (polozka.polozky || []).reduce((sum, p) => sum + ((parseFloat(p.cena) || 0) * (parseFloat(p.mnozstvo) || 0)), 0);
-            nazovHtml  = `📦 ${polozka.nazov}`;
+            nazovHtml  = `📦 ${_escapeHtml(polozka.nazov)}`;
             detailHtml = `Balíček (${pocet} položiek) — cca ${sumaBalika.toFixed(2)} €`;
         } else {
             const cena = (parseFloat(polozka.cena) || 0).toFixed(2);
-            nazovHtml  = polozka.nazov;
-            detailHtml = `${cena} € / ${polozka.mj || 'ks'}`;
+            nazovHtml  = _escapeHtml(polozka.nazov);
+            detailHtml = `${cena} € / ${_escapeHtml(polozka.mj || 'ks')}`;
         }
 
         div.innerHTML = `
@@ -1660,14 +1660,14 @@ function vykresliArchiv() {
         div.innerHTML = `
             <div class="archiv-karta-hlavicka">
                 <div class="archiv-karta-cislo">
-                    ${ponuka.cislo || 'Bez-čísla'}
+                    ${_escapeHtml(ponuka.cislo || 'Bez-čísla')}
                     ${stitokHtml}
                 </div>
-                <div class="archiv-karta-suma">${ponuka.sumaZobrazena} €</div>
+                <div class="archiv-karta-suma">${_escapeHtml(ponuka.sumaZobrazena)} €</div>
             </div>
             <div class="archiv-karta-zakaznik">
-                ${ponuka.meno || 'Neznámy zákazník'}
-                <span class="archiv-karta-datum">(${ponuka.datum})</span>
+                ${_escapeHtml(ponuka.meno || 'Neznámy zákazník')}
+                <span class="archiv-karta-datum">(${_escapeHtml(ponuka.datum)})</span>
             </div>
             <div class="archiv-karta-tlacidla">
                 ${btnSupisHtml}
@@ -3120,9 +3120,9 @@ function vykresliZoznamZnaciek() {
         div.innerHTML = `
             <div style="display: flex; align-items: center; gap: 15px;">
                 <div style="width: 60px; height: 30px; display: flex; align-items: center; justify-content: center; background: white; border-radius: 3px; padding: 2px;">
-                    <img src="${znacka.logoBase64}" style="max-height: 100%; max-width: 100%; object-fit: contain;">
+                    <img src="${_escapeHtml(znacka.logoBase64)}" style="max-height: 100%; max-width: 100%; object-fit: contain;">
                 </div>
-                <strong style="color: var(--text-color, #ffffff); font-size: 14px;">${znacka.nazov}</strong>
+                <strong style="color: var(--text-color, #ffffff); font-size: 14px;">${_escapeHtml(znacka.nazov)}</strong>
             </div>
             <button type="button" class="btn-danger btn-small" onclick="zmazatZnacku(${znacka.id})" style="padding: 4px 8px;">Zmazať</button>
         `;
@@ -4361,8 +4361,10 @@ function _zlucKatalog(localArr, cloudArr, localCas, cloudCas) {
     return Array.from(map.values());
 }
 
+// Escapovanie užívateľských hodnôt pred vložením do innerHTML (XSS ochrana).
+// ?? namiesto || — aby číselná 0 ostala "0" a nezmizla z inputov.
 function _escapeHtml(s) {
-    return String(s || '')
+    return String(s ?? '')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
