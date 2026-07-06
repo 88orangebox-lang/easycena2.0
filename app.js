@@ -76,6 +76,7 @@ function ulozRozpracovanuPonuku() {
         supisVazbaTyp:    document.getElementById('supis-vazba-typ')    ? document.getElementById('supis-vazba-typ').value    : 'cp',
         supisVazbaCislo:  document.getElementById('supis-vazba-cislo')  ? document.getElementById('supis-vazba-cislo').value  : '',
         supisVazbaCustom: document.getElementById('supis-vazba-custom') ? document.getElementById('supis-vazba-custom').value : '',
+        supisNadpis: document.getElementById('supis-nadpis') ? document.getElementById('supis-nadpis').value : '',
         dphZapnute: document.getElementById('ponuka-dph-toggle') ? document.getElementById('ponuka-dph-toggle').checked : true,
         meno: document.getElementById('meno-zakaznika').value,
         ulica: document.getElementById('ulica-zakaznika').value,
@@ -197,6 +198,14 @@ function _supisPodnadpis(typ, cislo, custom) {
     const c = (cislo || '').trim();
     return c ? (label + ' ' + c) : label;
 }
+// Hlavný nadpis súpisu prác: per‑ponuka nadpis, inak profilový default,
+// inak "SÚPIS PRÁC". Používa PDF aj banner na obrazovke.
+function _supisNadpis(perPonukaNadpis) {
+    const perP = (perPonukaNadpis || '').trim();
+    if (perP) return perP;
+    const profil = JSON.parse(localStorage.getItem('easycena_profil')) || {};
+    return (profil.supisNadpis || '').trim() || 'SÚPIS PRÁC';
+}
 
 function obnovRozpracovanuPonuku() {
     const data = JSON.parse(localStorage.getItem('easycena_rozpracovana'));
@@ -208,12 +217,14 @@ function obnovRozpracovanuPonuku() {
         if (data.supisVazbaTyp === undefined)    data.supisVazbaTyp = 'cp';
         if (data.supisVazbaCislo === undefined)  data.supisVazbaCislo = _cisteCisloCP(data.cislo);
         if (data.supisVazbaCustom === undefined) data.supisVazbaCustom = '';
+        if (data.supisNadpis === undefined)      data.supisNadpis = ''; // prázdne → padne na profil/„SÚPIS PRÁC"
 
         // --- VÄZBA SÚPISU: zobraz box + naplň polia (len v režime súpisu) ---
         const vazbaBox    = document.getElementById('supis-vazba-box');
         const vazbaTyp    = document.getElementById('supis-vazba-typ');
         const vazbaCislo  = document.getElementById('supis-vazba-cislo');
         const vazbaCustom = document.getElementById('supis-vazba-custom');
+        const vazbaNadpis = document.getElementById('supis-nadpis');
         if (vazbaBox)   vazbaBox.style.display = window.jeRezimSupis ? 'block' : 'none';
         if (vazbaTyp)   vazbaTyp.value = data.supisVazbaTyp;
         if (vazbaCislo) vazbaCislo.value = data.supisVazbaCislo;
@@ -221,6 +232,7 @@ function obnovRozpracovanuPonuku() {
             vazbaCustom.value = data.supisVazbaCustom;
             vazbaCustom.style.display = (data.supisVazbaTyp === 'ine') ? 'block' : 'none';
         }
+        if (vazbaNadpis) vazbaNadpis.value = data.supisNadpis;
 
         // --- BANNER PRE SÚPIS PRÁC ---
         let banner = document.getElementById('supis-banner');
@@ -239,7 +251,7 @@ function obnovRozpracovanuPonuku() {
                 const tabPonuka = document.getElementById('tab-ponuka');
                 tabPonuka.insertBefore(banner, tabPonuka.firstChild);
             }
-            banner.innerText = '⚠️ REŽIM: SÚPIS PRÁC ' + _supisPodnadpis(data.supisVazbaTyp, data.supisVazbaCislo, data.supisVazbaCustom);
+            banner.innerText = '⚠️ REŽIM: ' + _supisNadpis(data.supisNadpis) + ' ' + _supisPodnadpis(data.supisVazbaTyp, data.supisVazbaCislo, data.supisVazbaCustom);
             banner.style.display = 'block';
         } else if (banner) {
             banner.style.display = 'none';
@@ -1800,6 +1812,8 @@ function vytvorSupisPrac(id) {
         const profilV = JSON.parse(localStorage.getItem('easycena_profil')) || {};
         supisData.supisVazbaTyp    = profilV.supisVazbaTyp || 'cp';
         supisData.supisVazbaCustom = profilV.supisVazbaCustom || '';
+        // Nadpis súpisu — predvyplň z profilu (dá sa prepísať v hlavičke súpisu)
+        supisData.supisNadpis      = profilV.supisNadpis || '';
         // Pri väzbe na cenovú ponuku predvyplň číslo z CP; inak nechaj prázdne
         // na manuálne zadanie (appka nepozná číslo zákazky/faktúry).
         supisData.supisVazbaCislo  = (supisData.supisVazbaTyp === 'cp')
@@ -2014,7 +2028,8 @@ document.getElementById('ulozit-profil-btn').addEventListener('click', () => {
         informacia2: document.getElementById('profil-informacia-2').value,
         textPodpisu: document.getElementById('profil-text-podpisu').value,
         supisVazbaTyp: document.getElementById('profil-supis-vazba').value,
-        supisVazbaCustom: document.getElementById('profil-supis-vazba-custom').value
+        supisVazbaCustom: document.getElementById('profil-supis-vazba-custom').value,
+        supisNadpis: document.getElementById('profil-supis-nadpis').value
     };
     localStorage.setItem('easycena_profil', JSON.stringify(profil));
     if (typeof oznacZmeneny === 'function') oznacZmeneny('profil');
@@ -2061,6 +2076,8 @@ function nacitajProfil() {
                 pvc.style.display = (pv.value === 'ine') ? 'block' : 'none';
             }
         }
+        const pn = document.getElementById('profil-supis-nadpis');
+        if (pn) pn.value = profil.supisNadpis || '';
     }
     
     let aktualnyRok = new Date().getFullYear();
@@ -2264,7 +2281,8 @@ async function vygenerujPDF(akcia) {
     doc.setFont("Roboto", "bold");
     doc.setFontSize(22);
     doc.setTextColor(0, 86, 179);
-    const hlavnyNadpis = window.jeRezimSupis ? 'SÚPIS PRÁC' : 'CENOVÁ PONUKA';
+    const perPonukaNadpis = document.getElementById('supis-nadpis') ? document.getElementById('supis-nadpis').value : '';
+    const hlavnyNadpis = window.jeRezimSupis ? _supisNadpis(perPonukaNadpis) : 'CENOVÁ PONUKA';
     doc.text(hlavnyNadpis, 190, 18, { align: "right" });
     doc.setFont("Roboto", "normal");
     

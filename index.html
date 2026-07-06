@@ -855,6 +855,8 @@
 
             <!-- Väzba súpisu prác — viditeľné LEN v režime Súpis prác -->
             <div id="supis-vazba-box" style="display: none; padding: 10px 12px; margin-bottom: 12px; border: 1px solid var(--accent-color); border-radius: 6px; background: color-mix(in srgb, var(--accent-color) 6%, transparent);">
+                <label for="supis-nadpis" class="field-label" style="margin-bottom: 6px;">Nadpis dokumentu</label>
+                <input type="text" id="supis-nadpis" placeholder="SÚPIS PRÁC" maxlength="60" style="margin-bottom: 12px;">
                 <label for="supis-vazba-typ" class="field-label" style="margin-bottom: 6px;">Súpis prác viazaný na</label>
                 <div class="flex-row" style="margin-bottom: 0;">
                     <select id="supis-vazba-typ" style="flex: 2; margin-bottom: 0;">
@@ -1305,6 +1307,10 @@
                     <p class="settings-section-hint">Použi <b>{ROK}</b> pre aktuálny rok a <b>{CISLO}</b> pre poradové číslo. Ak začínaš uprostred roka, prepíš si nasledujúce číslo.</p>
 
                     <hr style="border: none; border-top: 1px dashed var(--border-color); margin: 16px 0;">
+
+                    <label for="profil-supis-nadpis">Predvolený nadpis súpisu prác</label>
+                    <input type="text" id="profil-supis-nadpis" placeholder="SÚPIS PRÁC" maxlength="60">
+                    <p class="settings-section-hint">Hlavný nadpis dokumentu súpisu (veľké modré písmo v PDF). Napr. „SÚPIS PRÁC A DODÁVOK". Pri každom súpise sa dá zmeniť.</p>
 
                     <label for="profil-supis-vazba">Predvolená väzba súpisu prác</label>
                     <select id="profil-supis-vazba">
