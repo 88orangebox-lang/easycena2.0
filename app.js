@@ -77,6 +77,7 @@ function ulozRozpracovanuPonuku() {
         supisVazbaCislo:  document.getElementById('supis-vazba-cislo')  ? document.getElementById('supis-vazba-cislo').value  : '',
         supisVazbaCustom: document.getElementById('supis-vazba-custom') ? document.getElementById('supis-vazba-custom').value : '',
         supisNadpis: document.getElementById('supis-nadpis') ? document.getElementById('supis-nadpis').value : '',
+        supisPodpisRezim: document.getElementById('supis-podpis-rezim') ? document.getElementById('supis-podpis-rezim').value : 'ciary',
         dphZapnute: document.getElementById('ponuka-dph-toggle') ? document.getElementById('ponuka-dph-toggle').checked : true,
         meno: document.getElementById('meno-zakaznika').value,
         ulica: document.getElementById('ulica-zakaznika').value,
@@ -218,6 +219,7 @@ function obnovRozpracovanuPonuku() {
         if (data.supisVazbaCislo === undefined)  data.supisVazbaCislo = _cisteCisloCP(data.cislo);
         if (data.supisVazbaCustom === undefined) data.supisVazbaCustom = '';
         if (data.supisNadpis === undefined)      data.supisNadpis = ''; // prázdne → padne na profil/„SÚPIS PRÁC"
+        if (data.supisPodpisRezim === undefined) data.supisPodpisRezim = 'ciary'; // staré súpisy = čiary Odovzdal/Prevzal
 
         // --- VÄZBA SÚPISU: zobraz box + naplň polia (len v režime súpisu) ---
         const vazbaBox    = document.getElementById('supis-vazba-box');
@@ -233,6 +235,8 @@ function obnovRozpracovanuPonuku() {
             vazbaCustom.style.display = (data.supisVazbaTyp === 'ine') ? 'block' : 'none';
         }
         if (vazbaNadpis) vazbaNadpis.value = data.supisNadpis;
+        const vazbaPodpisRezim = document.getElementById('supis-podpis-rezim');
+        if (vazbaPodpisRezim) vazbaPodpisRezim.value = data.supisPodpisRezim;
 
         // --- BANNER PRE SÚPIS PRÁC ---
         let banner = document.getElementById('supis-banner');
@@ -2238,6 +2242,39 @@ document.addEventListener('DOMContentLoaded', vykresliNahladPodpisu);
 // register od 287). Obsah musí skončiť najneskôr tu, inak by pätu prekryl.
 const PDF_MAX_Y = 268;
 
+// Vykreslí podpisovú časť dodávateľa: obrázok podpisu/pečiatky (alebo prázdnu
+// čiaru, ak podpis nie je nahratý) + popisný text pod ňou. Zdieľané cenovou
+// ponukou aj režimom "podpis" v súpise prác.
+async function _pdfPodpisDodavatela(doc, y, ulozenyPodpis, textPodpisuPdf) {
+    if (ulozenyPodpis) {
+        try {
+            const imgPropsP = await new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve({ w: img.width, h: img.height });
+                img.src = ulozenyPodpis;
+            });
+
+            const maxSirkaP = 50;
+            const maxVyskaP = 20;
+            const pomerP = Math.min(maxSirkaP / imgPropsP.w, maxVyskaP / imgPropsP.h);
+            const vyslednaSirkaP = imgPropsP.w * pomerP;
+            const vyslednaVyskaP = imgPropsP.h * pomerP;
+
+            const poziciaX = 165 - (vyslednaSirkaP / 2);
+            const poziciaY = (y + 15) - vyslednaVyskaP;
+
+            doc.addImage(ulozenyPodpis, 'PNG', poziciaX, poziciaY, vyslednaSirkaP, vyslednaVyskaP);
+        } catch(e) { console.error("Chyba podpisu", e); }
+    } else {
+        doc.setDrawColor(150, 150, 150);
+        doc.line(140, y + 15, 190, y + 15);
+    }
+
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text(textPodpisuPdf, 165, y + 20, {align: "center"});
+}
+
 async function vygenerujPDF(akcia) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -2753,44 +2790,29 @@ async function vygenerujPDF(akcia) {
     let textPodpisuPdf = profil.textPodpisu !== undefined && profil.textPodpisu !== '' ? profil.textPodpisu : 'Pečiatka a podpis dodávateľa';
 
     if (window.jeRezimSupis) {
-        // Pre Súpis prác schováme obrázok a dáme priestor pre obe strany
-        doc.setDrawColor(150, 150, 150);
-        doc.line(115, y + 15, 150, y + 15); // Čiara Odovzdal
-        doc.line(160, y + 15, 195, y + 15); // Čiara Prevzal
-        
-        doc.setFontSize(8);
-        doc.setTextColor(100, 100, 100);
-        doc.text('Odovzdal (Dodávateľ)', 132.5, y + 20, {align: "center"});
-        doc.text('Prevzal (Odberateľ)', 177.5, y + 20, {align: "center"});
-    } else {
-        // Štandardná logika pre Cenovú ponuku
-        if (ulozenyPodpis) {
-            try {
-                const imgPropsP = await new Promise((resolve) => {
-                    const img = new Image();
-                    img.onload = () => resolve({ w: img.width, h: img.height });
-                    img.src = ulozenyPodpis;
-                });
+        // Súpis prác — podpisová časť je voliteľná (per súpis):
+        //   'ciary'  = čiary Odovzdal/Prevzal (predvolené, ako doteraz)
+        //   'podpis' = podpis dodávateľa po vzore cenovej ponuky
+        //   'nic'    = žiadna podpisová časť
+        const podpisRezim = document.getElementById('supis-podpis-rezim')
+            ? document.getElementById('supis-podpis-rezim').value : 'ciary';
 
-                const maxSirkaP = 50; 
-                const maxVyskaP = 20;
-                const pomerP = Math.min(maxSirkaP / imgPropsP.w, maxVyskaP / imgPropsP.h);
-                const vyslednaSirkaP = imgPropsP.w * pomerP;
-                const vyslednaVyskaP = imgPropsP.h * pomerP;
-
-                const poziciaX = 165 - (vyslednaSirkaP / 2);
-                const poziciaY = (y + 15) - vyslednaVyskaP;
-
-                doc.addImage(ulozenyPodpis, 'PNG', poziciaX, poziciaY, vyslednaSirkaP, vyslednaVyskaP);
-            } catch(e) { console.error("Chyba podpisu", e); }
-        } else {
+        if (podpisRezim === 'podpis') {
+            await _pdfPodpisDodavatela(doc, y, ulozenyPodpis, textPodpisuPdf);
+        } else if (podpisRezim !== 'nic') {
+            // 'ciary' (default) — priestor pre podpis oboch strán
             doc.setDrawColor(150, 150, 150);
-            doc.line(140, y + 15, 190, y + 15);
+            doc.line(115, y + 15, 150, y + 15); // Čiara Odovzdal
+            doc.line(160, y + 15, 195, y + 15); // Čiara Prevzal
+
+            doc.setFontSize(8);
+            doc.setTextColor(100, 100, 100);
+            doc.text('Odovzdal (Dodávateľ)', 132.5, y + 20, {align: "center"});
+            doc.text('Prevzal (Odberateľ)', 177.5, y + 20, {align: "center"});
         }
-        
-        doc.setFontSize(8);
-        doc.setTextColor(100, 100, 100);
-        doc.text(textPodpisuPdf, 165, y + 20, {align: "center"});
+    } else {
+        // Štandardná logika pre Cenovú ponuku (nezmenená)
+        await _pdfPodpisDodavatela(doc, y, ulozenyPodpis, textPodpisuPdf);
     }
     
     // --- PÄTIČKA (NA KAŽDÚ STRANU) ---

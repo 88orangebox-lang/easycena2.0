@@ -868,6 +868,13 @@
                     <input type="text" id="supis-vazba-cislo" placeholder="Číslo" style="flex: 1; margin-bottom: 0;" aria-label="Číslo väzby súpisu">
                 </div>
                 <input type="text" id="supis-vazba-custom" placeholder="Napr. k objednávke č." style="display: none; margin-top: 8px; margin-bottom: 0;" aria-label="Vlastný text väzby">
+
+                <label for="supis-podpis-rezim" class="field-label" style="margin-top: 12px; margin-bottom: 6px;">Podpisová časť (dole na PDF)</label>
+                <select id="supis-podpis-rezim" style="margin-bottom: 0;">
+                    <option value="ciary">Čiary „Odovzdal / Prevzal"</option>
+                    <option value="podpis">Podpis dodávateľa (ako v ponuke)</option>
+                    <option value="nic">Nič (bez podpisovej časti)</option>
+                </select>
             </div>
 
             <input type="text" id="meno-zakaznika" placeholder="Meno / Názov firmy" aria-label="Meno alebo názov firmy">
