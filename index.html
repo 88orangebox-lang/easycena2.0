@@ -1329,6 +1329,14 @@
                     <input type="text" id="profil-supis-vazba-custom" placeholder="Napr. Súpis prác k objednávke č." style="display: none; margin-top: 8px;">
                     <p class="settings-section-hint">Určuje, na čo sa štandardne viaže súpis prác (v hlavičke PDF). Pri každom súpise sa dá zmeniť.</p>
 
+                    <label for="profil-supis-podpis-rezim">Predvolená podpisová časť súpisu</label>
+                    <select id="profil-supis-podpis-rezim">
+                        <option value="ciary">Čiary „Odovzdal / Prevzal"</option>
+                        <option value="podpis">Podpis dodávateľa (ako v ponuke)</option>
+                        <option value="nic">Nič (bez podpisovej časti)</option>
+                    </select>
+                    <p class="settings-section-hint">Spodná časť dokumentu súpisu. Nové súpisy ju zdedia; pri každom súpise sa dá zmeniť.</p>
+
                     <label for="profil-poznamka-1">Predvolená poznámka (nad technickým popisom)</label>
                     <textarea id="profil-poznamka-1" rows="2" placeholder="napr. Cenová ponuka bola spracovaná na základe obhliadky..." style="width: 100%; padding: 12px; border: 1px solid var(--input-border-color); border-radius: 6px; font-family: inherit; margin-bottom: 10px; background: var(--input-bg-color); color: var(--text-color); box-sizing: border-box;"></textarea>
 
