@@ -815,7 +815,9 @@ function ukazNasepkavac(inputElement, vsetko = false) {
                     : 'k-material');
 
             if (polozka.typ === 'balik' && !jeVBaliku) {
-                const pocet = polozka.polozky ? polozka.polozky.length : 0;
+                // BEZPEČNOSŤ: počet berieme len zo skutočného poľa (v cudzej zálohe
+                // môže byť namiesto poľa objekt s podvrhnutým "length").
+                const pocet = Array.isArray(polozka.polozky) ? polozka.polozky.length : 0;
                 div.innerHTML = `<span class="nasepkavac-bodka ${triedaBodky}"></span><span class="np-text"><strong>📦 ${_escapeHtml(polozka.nazov)}</strong> <small>(${pocet} položiek)</small></span>`;
             } else {
                 div.innerHTML = `<span class="nasepkavac-bodka ${triedaBodky}"></span><span class="np-text">${_escapeHtml(polozka.nazov)} - ${_escapeHtml(polozka.cena)} € / ${_escapeHtml(polozka.mj || 'ks')}</span>`;
@@ -1373,8 +1375,10 @@ function vykresliKatalog() {
         // Nadpis a detail riadok podľa typu (názvy escapované — XSS ochrana)
         let nazovHtml, detailHtml;
         if (polozka.typ === 'balik') {
-            const pocet = polozka.polozky ? polozka.polozky.length : 0;
-            const sumaBalika = (polozka.polozky || []).reduce((sum, p) => sum + ((parseFloat(p.cena) || 0) * (parseFloat(p.mnozstvo) || 0)), 0);
+            // BEZPEČNOSŤ: položky balíčka berieme len ak sú naozaj pole.
+            const polozkyBalika = Array.isArray(polozka.polozky) ? polozka.polozky : [];
+            const pocet = polozkyBalika.length;
+            const sumaBalika = polozkyBalika.reduce((sum, p) => sum + ((parseFloat(p && p.cena) || 0) * (parseFloat(p && p.mnozstvo) || 0)), 0);
             nazovHtml  = `📦 ${_escapeHtml(polozka.nazov)}`;
             detailHtml = `Balíček (${pocet} položiek) — cca ${sumaBalika.toFixed(2)} €`;
         } else {
@@ -1679,9 +1683,12 @@ function vykresliArchiv() {
             ? '<span class="archiv-stitok zeleny">✓ Súpis</span>'
             : '<span class="archiv-stitok neutralny">📝 Iba ponuka</span>';
 
+        // BEZPEČNOSŤ: tlačidlá nemajú inline onclick s ponuka.id — hodnota z dát
+        // (aj z cudzej zálohy) sa do HTML vôbec nevkladá. Obsluha sa pripája
+        // nižšie cez addEventListener a id sa odovzdá priamo ako hodnota.
         const btnSupisHtml = ponuka.obsahujeSupis
-            ? `<button class="btn-success btn-small archiv-btn-supis archiv-btn-supis-otvor" onclick="vytvorSupisPrac(${ponuka.id})">✏️ Otvoriť Súpis prác</button>`
-            : `<button class="btn-success btn-small archiv-btn-supis" onclick="vytvorSupisPrac(${ponuka.id})">📝 Vytvoriť Súpis prác</button>`;
+            ? `<button class="btn-success btn-small archiv-btn-supis archiv-btn-supis-otvor">✏️ Otvoriť Súpis prác</button>`
+            : `<button class="btn-success btn-small archiv-btn-supis">📝 Vytvoriť Súpis prác</button>`;
 
         div.innerHTML = `
             <div class="archiv-karta-hlavicka">
@@ -1697,11 +1704,15 @@ function vykresliArchiv() {
             </div>
             <div class="archiv-karta-tlacidla">
                 ${btnSupisHtml}
-                <button class="btn-primary btn-small archiv-btn-duplikuj" onclick="duplikujZArchivu(${ponuka.id})">Duplikovať</button>
-                <button class="btn-secondary btn-small archiv-btn-otvor" onclick="nacitajZArchivu(${ponuka.id})">Otvoriť</button>
-                <button class="btn-danger btn-small" onclick="zmazZArchivu(${ponuka.id})">Zmazať</button>
+                <button class="btn-primary btn-small archiv-btn-duplikuj">Duplikovať</button>
+                <button class="btn-secondary btn-small archiv-btn-otvor">Otvoriť</button>
+                <button class="btn-danger btn-small archiv-btn-zmaz">Zmazať</button>
             </div>
         `;
+        div.querySelector('.archiv-btn-supis').addEventListener('click', () => vytvorSupisPrac(ponuka.id));
+        div.querySelector('.archiv-btn-duplikuj').addEventListener('click', () => duplikujZArchivu(ponuka.id));
+        div.querySelector('.archiv-btn-otvor').addEventListener('click', () => nacitajZArchivu(ponuka.id));
+        div.querySelector('.archiv-btn-zmaz').addEventListener('click', () => zmazZArchivu(ponuka.id));
         zoznam.appendChild(div);
     });
 }
@@ -3179,8 +3190,10 @@ function vykresliZoznamZnaciek() {
                 </div>
                 <strong style="color: var(--text-color, #ffffff); font-size: 14px;">${_escapeHtml(znacka.nazov)}</strong>
             </div>
-            <button type="button" class="btn-danger btn-small" onclick="zmazatZnacku(${znacka.id})" style="padding: 4px 8px;">Zmazať</button>
+            <button type="button" class="btn-danger btn-small znacka-btn-zmaz" style="padding: 4px 8px;">Zmazať</button>
         `;
+        // BEZPEČNOSŤ: bez inline onclick — id značky sa do HTML nevkladá.
+        div.querySelector('.znacka-btn-zmaz').addEventListener('click', () => zmazatZnacku(znacka.id));
         kontajner.appendChild(div);
     });
 
@@ -3967,11 +3980,12 @@ function _renderZoznamZaloh(overlay, subory) {
         }
         const sizeKB = s.size ? Math.round(parseInt(s.size, 10) / 1024) : null;
         const metaParts = [formatDate];
-        if (deviceLabel) metaParts.push('📍 ' + deviceLabel);
+        // BEZPEČNOSŤ: názov zariadenia pochádza z popisu súboru v Drive — escapovať.
+        if (deviceLabel) metaParts.push('📍 ' + _escapeHtml(deviceLabel));
         if (sizeKB) metaParts.push(sizeKB + ' KB');
 
         html += `
-            <div class="backup-item" data-file-id="${s.id}" data-file-name="${_escapeHtml(s.name)}">
+            <div class="backup-item" data-file-id="${_escapeHtml(s.id)}" data-file-name="${_escapeHtml(s.name)}">
                 <div>
                     <div class="backup-item-name">${_escapeHtml(s.name)}</div>
                     <div class="backup-item-meta">${metaParts.join(' · ')}</div>
@@ -4458,7 +4472,7 @@ async function _stiahniAObnovZoDrive(overlay, fileId, fileName) {
         setTimeout(() => location.reload(), 800);
     } catch (err) {
         console.error('Drive download/apply failed:', err);
-        if (body) body.innerHTML = '<div class="sync-meta" style="border: 1px solid var(--danger-btn-bg-color);">❌ Chyba: ' + (err.message || 'sťahovanie zlyhalo') + '</div>';
+        if (body) body.innerHTML = '<div class="sync-meta" style="border: 1px solid var(--danger-btn-bg-color);">❌ Chyba: ' + _escapeHtml(err.message || 'sťahovanie zlyhalo') + '</div>';
         if (err && err.status === 401) {
             if (confirm('Prihlásenie do Google Drive vypršalo. Chceš sa znova prihlásiť?')) {
                 _zatvorModal(overlay);
