@@ -2,6 +2,16 @@
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./service-worker.js');
 }
+
+// Verzia aplikácie — zobrazuje sa na konci Nastavení, aby bolo na každom
+// zariadení vidieť, či už beží nová verzia. Pri každom nasadení ju zvýš.
+// Zámerne hneď na začiatku súboru: vypíše sa aj vtedy, keby zvyšok zlyhal.
+const VERZIA_APPKY = '2026-10-04.1';
+document.addEventListener('DOMContentLoaded', () => {
+    const verziaEl = document.getElementById('verzia-appky');
+    if (verziaEl) verziaEl.textContent = 'Verzia ' + VERZIA_APPKY;
+});
+
 let katalog = JSON.parse(localStorage.getItem('easycena_katalog')) || [];
 let archiv = JSON.parse(localStorage.getItem('easycena_archiv')) || [];
 
